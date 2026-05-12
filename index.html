@@ -378,7 +378,7 @@ let _lodge      = '';   // lodge number from URL param
 let _meetingDate= '';   // meeting date from URL param
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
 let _lodgeName  = '';   // not stored — derived from URL only
-let _code       = '';   // full code as entered e.g. 'L9312WPW-MAY26'
+let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
 let _matched    = false;// true if suffix matched URL param
 let _response   = '';   // 'Apol' | 'MtgOnly' | 'MtgDining' | 'MtgDiningGuest'
 let _guest      = '';
@@ -457,7 +457,7 @@ function showScreen(screen, extra){
         <div class="card-body screen">
           <div class="field-group">
             <label for="code-input">Your personal code for this meeting</label>
-            <input id="code-input" class="code-input" type="text" placeholder="e.g. L9312WPW-MAY26"
+            <input id="code-input" class="code-input" type="text" placeholder="e.g. L9312ABC-MAY26"
               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
               oninput="this.value=this.value.toUpperCase()"
               onkeydown="if(event.key==='Enter')validateCode()">
@@ -466,8 +466,7 @@ function showScreen(screen, extra){
           <div id="code-error" style="display:none"></div>
           <button class="btn btn-primary" onclick="validateCode()">Continue →</button>
           <hr class="divider" style="margin-top:20px">
-          <div style="text-align:center"><span class="divider-label">Code not working?</span></div>
-          <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="showFallback()">Enter your name and email instead</button>
+          <button class="btn btn-outline" style="width:100%" onclick="showFallback()">👤 Guest or forgot your personal code?</button>
         </div>`;
       setTimeout(()=>document.getElementById('code-input')?.focus(), 100);
       break;
@@ -595,6 +594,8 @@ function showAlreadySubmitted(saved){
       <div class="response-badge ${badge}">${label}</div>
       ${saved.guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">Guest: ${escHtml(saved.guest)}</div>` : ''}
       <div class="success-detail">You have already responded for this meeting.<br>If you need to change your response, please contact your Secretary directly.</div>
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
 }
 
@@ -622,7 +623,7 @@ function validateCode(){
     _matched = true;
     showScreen('response');
   } else {
-    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>L9312WPWMAY26</strong>.`);
+    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>L9312ABCMAY26</strong>.`);
     input.select();
     input.focus();
   }
@@ -691,6 +692,15 @@ async function submitResponse(){
   showSuccess();
 }
 
+function clearAndRespond(){
+  localStorage.removeItem(`rsvp_submitted_${_lodge}_${_meetingDate}`);
+  _response = '';
+  _code     = '';
+  _matched  = false;
+  _guest    = '';
+  showScreen('code-entry');
+}
+
 function showSuccess(){
   const app   = document.getElementById('app');
   const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest' };
@@ -716,6 +726,8 @@ function showSuccess(){
       ${!_matched ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
         <span>ℹ</span><div>Your code wasn't recognised — the Secretary will follow up to confirm your response.</div>
       </div>` : ''}
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
 }
 
