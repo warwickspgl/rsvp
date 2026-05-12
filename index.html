@@ -368,7 +368,11 @@ const FORM_FIELDS = {
   fallbackName:  'entry.632134531',
   fallbackEmail: 'entry.1858601424',
   lodge:         'entry.1360831682',
-  meetingDate:   'entry.2025974007'
+  meetingDate:   'entry.2025974007',
+  surname:       'entry.1418117909',
+  dietary:       'entry.524420489',
+  guestLodge:    'entry.1732070911',
+  guestDietary:  'entry.349902561'
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -382,6 +386,10 @@ let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
 let _matched    = false;// true if suffix matched URL param
 let _response   = '';   // 'Apol' | 'MtgOnly' | 'MtgDining' | 'MtgDiningGuest'
 let _guest      = '';
+let _surname    = '';
+let _dietary    = '';
+let _guestLodge = '';
+let _guestDietary = '';
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT
@@ -481,7 +489,11 @@ function showScreen(screen, extra){
         <div class="card-body screen">
           <div class="alert alert-success" style="margin-bottom:18px">
             <span>✓</span>
-            <div>Code recognised. Please select your response below.</div>
+            <div>Code recognised. Please complete your response below.</div>
+          </div>
+          <div class="field-group" style="margin-bottom:14px">
+            <label for="surname-input">Your surname <span style="font-weight:400;color:var(--muted)">(optional — helps us verify your response)</span></label>
+            <input id="surname-input" type="text" placeholder="e.g. Watson">
           </div>
           <label style="margin-bottom:10px">I will be:</label>
           <div class="response-grid" id="resp-grid">
@@ -505,12 +517,34 @@ function showScreen(screen, extra){
               <div class="resp-sub">Meeting, Dining &amp; Guest</div>
             </button>
           </div>
-          <div id="guest-section" style="display:none;margin-top:18px">
+          <div id="dietary-section" style="display:none;margin-top:16px">
+            <hr class="divider">
+            <div class="field-group">
+              <label for="dietary-sel">Your dietary requirements</label>
+              <select id="dietary-sel" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('dietary-text',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="dietary-text" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+            </div>
+          </div>
+          <div id="guest-section" style="display:none;margin-top:4px">
             <hr class="divider">
             <div class="field-group">
               <label for="guest-name">Guest's full name</label>
               <input id="guest-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
-              <div class="field-hint">Please give your guest's full name so the Caterer Sheet can be prepared correctly.</div>
+            </div>
+            <div class="field-group">
+              <label for="guest-lodge">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-lodge" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
+            </div>
+            <div class="field-group">
+              <label for="guest-dietary-sel">Guest's dietary requirements</label>
+              <select id="guest-dietary-sel" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="guest-dietary-text" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
             </div>
           </div>
           <div style="margin-top:20px">
@@ -563,11 +597,34 @@ function showScreen(screen, extra){
               <div class="resp-sub">Meeting, Dining &amp; Guest</div>
             </button>
           </div>
-          <div id="guest-section-fb" style="display:none;margin-top:18px">
+          <div id="dietary-section-fb" style="display:none;margin-top:16px">
+            <hr class="divider">
+            <div class="field-group">
+              <label for="dietary-sel-fb">Your dietary requirements</label>
+              <select id="dietary-sel-fb" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('dietary-text-fb',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="dietary-text-fb" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+            </div>
+          </div>
+          <div id="guest-section-fb" style="display:none;margin-top:4px">
             <hr class="divider">
             <div class="field-group">
               <label for="guest-name-fb">Guest's full name</label>
               <input id="guest-name-fb" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
+            </div>
+            <div class="field-group">
+              <label for="guest-lodge-fb">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-lodge-fb" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
+            </div>
+            <div class="field-group">
+              <label for="guest-dietary-sel-fb">Guest's dietary requirements</label>
+              <select id="guest-dietary-sel-fb" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text-fb',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="guest-dietary-text-fb" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
             </div>
           </div>
           <div style="margin-top:20px">
@@ -579,7 +636,43 @@ function showScreen(screen, extra){
   }
 }
 
-function showAlreadySubmitted(saved){
+function showFallback(){
+  _matched = false; _code = '';
+  showScreen('fallback');
+}
+
+function toggleDietaryText(id, val){
+  const el = document.getElementById(id);
+  if(el) el.style.display = val==='specify' ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RESPONSE SELECTION
+// ═══════════════════════════════════════════════════════════════
+function selectResponse(val, btn){
+  _response = val;
+  btn.closest('.response-grid').querySelectorAll('.resp-btn').forEach(b=>b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const isDining = ['MtgDining','MtgDiningGuest'].includes(val);
+  const isGuest  = val === 'MtgDiningGuest';
+  // Show dietary for any dining response
+  const dietSec   = document.getElementById('dietary-section')    || document.getElementById('dietary-section-fb');
+  if(dietSec) dietSec.style.display = isDining ? '' : 'none';
+  // Show guest section only for MtgDiningGuest
+  const guestSec  = document.getElementById('guest-section')      || document.getElementById('guest-section-fb');
+  if(guestSec) guestSec.style.display = isGuest ? '' : 'none';
+  updateSubmitBtn();
+}
+
+function updateSubmitBtn(){
+  const btn = document.getElementById('submit-btn');
+  if(!btn) return;
+  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
+  const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
+  const ready   = _response !== '' && guestOk;
+  btn.disabled    = !ready;
+  btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
+}
   document.getElementById('footer-text').style.display = '';
   const app = document.getElementById('app');
   const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest' };
@@ -618,43 +711,30 @@ function validateCode(){
   const normalised = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   const normSuffix = _suffix.replace(/[^A-Z0-9]/g, '');
 
-  if(normSuffix && normalised.endsWith(normSuffix)){
-    _code    = normalised;  // store the cleaned version
-    _matched = true;
-    showScreen('response');
-  } else {
-    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>L9312ABCMAY26</strong>.`);
-    input.select();
-    input.focus();
+  // Must end with correct meeting suffix
+  if(!normSuffix || !normalised.endsWith(normSuffix)){
+    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>L${escHtml(_lodge)}ABCMAY26</strong>.`);
+    input.select(); input.focus();
+    return;
   }
+
+  // Must contain the lodge number
+  if(_lodge && !normalised.includes(_lodge.replace(/[^A-Z0-9]/gi,''))){
+    showError(errEl, `Code not recognised — your code should contain your lodge number <strong>${escHtml(_lodge)}</strong>. Please check and try again.`);
+    input.select(); input.focus();
+    return;
+  }
+
+  _code    = normalised;
+  _matched = true;
+  showScreen('response');
 }
 
-function showFallback(){
-  _matched = false;
-  _code    = '';
-  showScreen('fallback');
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  RESPONSE SELECTION
-// ═══════════════════════════════════════════════════════════════
-function selectResponse(val, btn){
-  _response = val;
-  btn.closest('.response-grid').querySelectorAll('.resp-btn').forEach(b=>b.classList.remove('selected'));
-  btn.classList.add('selected');
-  const guestSec = document.getElementById('guest-section') || document.getElementById('guest-section-fb');
-  if(guestSec) guestSec.style.display = val==='MtgDiningGuest' ? '' : 'none';
-  updateSubmitBtn();
-}
-
-function updateSubmitBtn(){
-  const btn = document.getElementById('submit-btn');
-  if(!btn) return;
-  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
-  const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
-  const ready   = _response !== '' && guestOk;
-  btn.disabled    = !ready;
-  btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
+function clearAndRespond(){
+  localStorage.removeItem(`rsvp_submitted_${_lodge}_${_meetingDate}`);
+  _response=''; _code=''; _matched=false; _guest='';
+  _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
+  showScreen('code-entry');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -664,11 +744,23 @@ async function submitResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
 
-  const guestInput  = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
-  _guest = (_response === 'MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
+  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
+  _guest   = (_response==='MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
+  _surname = (document.getElementById('surname-input')||{value:''}).value.trim();
 
-  const fbName  = (document.getElementById('fb-name')  || {value:''}).value.trim();
-  const fbEmail = (document.getElementById('fb-email') || {value:''}).value.trim();
+  const fbName  = (document.getElementById('fb-name') ||{value:''}).value.trim();
+  const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
+
+  // Dietary — use text if "specify" selected
+  const dietSel  = document.getElementById('dietary-sel')   || document.getElementById('dietary-sel-fb');
+  const dietText = document.getElementById('dietary-text')  || document.getElementById('dietary-text-fb');
+  _dietary = (dietSel&&dietSel.value==='specify'&&dietText) ? dietText.value.trim() : '';
+
+  const gLodgeEl  = document.getElementById('guest-lodge')         || document.getElementById('guest-lodge-fb');
+  const gDietSel  = document.getElementById('guest-dietary-sel')   || document.getElementById('guest-dietary-sel-fb');
+  const gDietText = document.getElementById('guest-dietary-text')  || document.getElementById('guest-dietary-text-fb');
+  _guestLodge   = gLodgeEl  ? gLodgeEl.value.trim() : '';
+  _guestDietary = (gDietSel&&gDietSel.value==='specify'&&gDietText) ? gDietText.value.trim() : '';
 
   try{
     const body = new URLSearchParams();
@@ -679,12 +771,15 @@ async function submitResponse(){
     body.append(FORM_FIELDS.fallbackEmail, fbEmail);
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
+    body.append(FORM_FIELDS.surname,       _surname);
+    body.append(FORM_FIELDS.dietary,       _dietary);
+    body.append(FORM_FIELDS.guestLodge,    _guestLodge);
+    body.append(FORM_FIELDS.guestDietary,  _guestDietary);
     await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
   } catch(e){
     // no-cors always throws — treat as success
   }
 
-  // Prevent duplicate submissions
   localStorage.setItem(`rsvp_submitted_${_lodge}_${_meetingDate}`, JSON.stringify({
     response: _response, guest: _guest, submitted: new Date().toISOString()
   }));
@@ -694,10 +789,8 @@ async function submitResponse(){
 
 function clearAndRespond(){
   localStorage.removeItem(`rsvp_submitted_${_lodge}_${_meetingDate}`);
-  _response = '';
-  _code     = '';
-  _matched  = false;
-  _guest    = '';
+  _response=''; _code=''; _matched=false; _guest='';
+  _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
 }
 
