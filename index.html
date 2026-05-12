@@ -673,6 +673,8 @@ function updateSubmitBtn(){
   btn.disabled    = !ready;
   btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
 }
+
+function showAlreadySubmitted(saved){
   document.getElementById('footer-text').style.display = '';
   const app = document.getElementById('app');
   const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest' };
