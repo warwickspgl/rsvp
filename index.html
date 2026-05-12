@@ -378,7 +378,9 @@ const FORM_FIELDS = {
 // ═══════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════
-let _lodge      = '';   // lodge number from URL param
+let _lodge      = '';   // lodge param from URL e.g. 'C1630' or '9312'
+let _lodgeNum   = '';   // numeric part e.g. '1630'
+let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
 let _lodgeName  = '';   // not stored — derived from URL only
@@ -399,6 +401,11 @@ function init(){
   _lodge       = params.get('l') || '';
   _meetingDate = params.get('d') || '';
 
+  // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
+  // Extract numeric part for display and matching
+  _lodgeNum    = _lodge.replace(/^[A-Z]+/i,'');  // '1630', '9312'
+  _lodgePrefix = _lodge.replace(/\d+$/,'').toUpperCase(); // 'C', 'L', 'ROS', 'AAR', ''
+
   if(!_lodge || !_meetingDate){
     showScreen('no-params');
     return;
@@ -408,7 +415,7 @@ function init(){
   _suffix = meetingSuffixFromDate(_meetingDate);
 
   // Check if already submitted for this meeting
-  const storageKey = `rsvp_submitted_${_lodge}_${_meetingDate}`;
+  const storageKey = `rsvp_submitted_${_lodgeNum}_${_meetingDate}`;
   const saved = localStorage.getItem(storageKey);
   if(saved){
     showAlreadySubmitted(JSON.parse(saved));
@@ -428,9 +435,13 @@ function meetingSuffixFromDate(dateStr){
   return MONTHS[d.getMonth()] + String(d.getFullYear()).slice(2);
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  SCREENS
-// ═══════════════════════════════════════════════════════════════
+// Derive a display label and example code prefix from the lodge number
+// Chapters use C prefix, everything else L (we can't know order from URL alone)
+// So just use the lodge number as-is for the example
+function exampleCode(){
+  const pfx = _lodgePrefix || 'L';
+  return `${pfx}${_lodgeNum}ABC-${_suffix||'MAY26'}`;
+}
 function showScreen(screen, extra){
   const app = document.getElementById('app');
   document.getElementById('footer-text').style.display = '';
@@ -460,12 +471,12 @@ function showScreen(screen, extra){
         </div>
         <div class="meeting-strip">
           <span>📅 <strong>${mtgDate}</strong></span>
-          <span class="pill">Lodge ${escHtml(_lodge)}</span>
+          <span class="pill">Lodge ${escHtml(_lodgeNum)}</span>
         </div>
         <div class="card-body screen">
           <div class="field-group">
             <label for="code-input">Your personal code for this meeting</label>
-            <input id="code-input" class="code-input" type="text" placeholder="e.g. L9312ABC-MAY26"
+            <input id="code-input" class="code-input" type="text" placeholder="e.g. ${exampleCode()}"
               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
               oninput="this.value=this.value.toUpperCase()"
               onkeydown="if(event.key==='Enter')validateCode()">
@@ -484,7 +495,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Meeting Response</div>
-          <div class="card-head-sub">📅 ${mtgDate2} · Lodge ${escHtml(_lodge)}</div>
+          <div class="card-head-sub">📅 ${mtgDate2} · Lodge ${escHtml(_lodgeNum)}</div>
         </div>
         <div class="card-body screen">
           <div class="alert alert-success" style="margin-bottom:18px">
@@ -558,7 +569,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Meeting Response</div>
-          <div class="card-head-sub">📅 ${mtgDate3} · Lodge ${escHtml(_lodge)}</div>
+          <div class="card-head-sub">📅 ${mtgDate3} · Lodge ${escHtml(_lodgeNum)}</div>
         </div>
         <div class="card-body screen">
           <div class="alert alert-warn" style="margin-bottom:18px">
@@ -715,14 +726,14 @@ function validateCode(){
 
   // Must end with correct meeting suffix
   if(!normSuffix || !normalised.endsWith(normSuffix)){
-    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>L${escHtml(_lodge)}ABCMAY26</strong>.`);
+    showError(errEl, `Code not recognised — your code for this meeting ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and punctuation don't matter, so try just the letters and numbers, e.g. <strong>${exampleCode().replace(/-/g,'')}</strong>.`);
     input.select(); input.focus();
     return;
   }
 
-  // Must contain the lodge number
-  if(_lodge && !normalised.includes(_lodge.replace(/[^A-Z0-9]/gi,''))){
-    showError(errEl, `Code not recognised — your code should contain your lodge number <strong>${escHtml(_lodge)}</strong>. Please check and try again.`);
+  // Must contain the lodge number (numeric part)
+  if(_lodgeNum && !normalised.includes(_lodgeNum)){
+    showError(errEl, `Code not recognised — your code should contain your lodge number <strong>${escHtml(_lodgeNum)}</strong>. Please check and try again.`);
     input.select(); input.focus();
     return;
   }
@@ -733,7 +744,7 @@ function validateCode(){
 }
 
 function clearAndRespond(){
-  localStorage.removeItem(`rsvp_submitted_${_lodge}_${_meetingDate}`);
+  localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
   _response=''; _code=''; _matched=false; _guest='';
   _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
@@ -771,7 +782,7 @@ async function submitResponse(){
     body.append(FORM_FIELDS.guestName,     _guest);
     body.append(FORM_FIELDS.fallbackName,  fbName);
     body.append(FORM_FIELDS.fallbackEmail, fbEmail);
-    body.append(FORM_FIELDS.lodge,         _lodge);
+    body.append(FORM_FIELDS.lodge,         _lodgeNum);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       _surname);
     body.append(FORM_FIELDS.dietary,       _dietary);
@@ -782,7 +793,7 @@ async function submitResponse(){
     // no-cors always throws — treat as success
   }
 
-  localStorage.setItem(`rsvp_submitted_${_lodge}_${_meetingDate}`, JSON.stringify({
+  localStorage.setItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
     response: _response, guest: _guest, submitted: new Date().toISOString()
   }));
 
@@ -790,7 +801,7 @@ async function submitResponse(){
 }
 
 function clearAndRespond(){
-  localStorage.removeItem(`rsvp_submitted_${_lodge}_${_meetingDate}`);
+  localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
   _response=''; _code=''; _matched=false; _guest='';
   _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
@@ -807,7 +818,7 @@ function showSuccess(){
   app.innerHTML = `
     <div class="card-head">
       <div class="card-head-title">Response Recorded</div>
-      <div class="card-head-sub">Lodge ${escHtml(_lodge)} — ${mtgDate}</div>
+      <div class="card-head-sub">Lodge ${escHtml(_lodgeNum)} — ${mtgDate}</div>
     </div>
     <div class="card-body screen">
       <div class="success-icon">✅</div>
