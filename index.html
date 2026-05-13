@@ -447,6 +447,12 @@ function meetingSuffixFromDate(dateStr){
 // Derive a display label and example code prefix from the lodge number
 // Chapters use C prefix, everything else L (we can't know order from URL alone)
 // So just use the lodge number as-is for the example
+function lodgeDisplayLabel(){
+  const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
+  const type = labels[_lodgePrefix] || 'Lodge';
+  return `${type} ${_lodgeNum}`;
+}
+
 function exampleCode(){
   const pfx = _lodgePrefix || 'L';
   return `${pfx}${_lodgeNum}ABC-${_suffix||'MAY26'}`;
@@ -495,7 +501,7 @@ function showScreen(screen, extra){
         </div>
         <div class="meeting-strip">
           <span>📅 <strong>${mtgDate}</strong></span>
-          <span class="pill">Lodge ${escHtml(_lodgeNum)}</span>
+          <span class="pill">${lodgeDisplayLabel()}</span>
         </div>
         <div class="card-body screen">
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
@@ -521,7 +527,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Meeting Response</div>
-          <div class="card-head-sub">📅 ${mtgDateCI} · Lodge ${escHtml(_lodgeNum)}</div>
+          <div class="card-head-sub">📅 ${mtgDateCI} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
           <div class="field-group">
@@ -544,7 +550,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Guest Response</div>
-          <div class="card-head-sub">📅 ${mtgDateG} · Lodge ${escHtml(_lodgeNum)}</div>
+          <div class="card-head-sub">📅 ${mtgDateG} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
           <div class="field-group">
@@ -600,7 +606,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Meeting Response</div>
-          <div class="card-head-sub">📅 ${mtgDate2} · Lodge ${escHtml(_lodgeNum)}</div>
+          <div class="card-head-sub">📅 ${mtgDate2} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
           <div class="alert alert-success" style="margin-bottom:18px">
@@ -674,7 +680,7 @@ function showScreen(screen, extra){
       app.innerHTML = `
         <div class="card-head">
           <div class="card-head-title">Lodge Member — Forgot Code</div>
-          <div class="card-head-sub">📅 ${mtgDate3} · Lodge ${escHtml(_lodgeNum)}</div>
+          <div class="card-head-sub">📅 ${mtgDate3} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
           <div class="alert alert-info" style="margin-bottom:18px">
@@ -962,7 +968,7 @@ function showSuccess(){
   app.innerHTML = `
     <div class="card-head">
       <div class="card-head-title">Response Recorded</div>
-      <div class="card-head-sub">Lodge ${escHtml(_lodgeNum)} — ${mtgDate}</div>
+      <div class="card-head-sub">${lodgeDisplayLabel()} — ${mtgDate}</div>
     </div>
     <div class="card-body screen">
       <div class="success-icon">✅</div>
