@@ -388,7 +388,7 @@ let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
 let _matched    = false;// true if suffix matched URL param
 let _response   = '';   // 'Apol' | 'MtgOnly' | 'MtgDining' | 'MtgDiningGuest'
 let _guest      = '';
-let _surname    = '';
+let _isMember   = false; // true when member used forgot-code path
 let _dietary    = '';
 let _guestLodge = '';
 let _guestDietary = '';
@@ -759,7 +759,7 @@ function showScreen(screen, extra){
 }
 
 function showFallback(){
-  _matched = false; _code = '';
+  _matched = false; _code = ''; _isMember = true;
   showScreen('fallback');
 }
 
@@ -886,7 +886,7 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.guestName,     '');
     body.append(FORM_FIELDS.fallbackName,  guestSelfName);
     body.append(FORM_FIELDS.fallbackEmail, guestSelfEmail);
-    body.append(FORM_FIELDS.lodge,         _lodgeNum);
+    body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       '');
     body.append(FORM_FIELDS.dietary,       _dietary);
@@ -927,12 +927,12 @@ async function submitResponse(){
 
   try{
     const body = new URLSearchParams();
-    body.append(FORM_FIELDS.code,          _matched ? _code : '(unmatched)');
+    body.append(FORM_FIELDS.code,          _matched ? _code : _isMember ? '(member)' : '(unmatched)');
     body.append(FORM_FIELDS.response,      _response);
     body.append(FORM_FIELDS.guestName,     _guest);
     body.append(FORM_FIELDS.fallbackName,  fbName);
     body.append(FORM_FIELDS.fallbackEmail, fbEmail);
-    body.append(FORM_FIELDS.lodge,         _lodgeNum);
+    body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       _surname);
     body.append(FORM_FIELDS.dietary,       _dietary);
@@ -952,7 +952,7 @@ async function submitResponse(){
 
 function clearAndRespond(){
   localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
-  _response=''; _code=''; _matched=false; _guest='';
+  _response=''; _code=''; _matched=false; _guest=''; _isMember=false;
   _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
 }
