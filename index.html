@@ -474,20 +474,101 @@ function showScreen(screen, extra){
           <span class="pill">Lodge ${escHtml(_lodgeNum)}</span>
         </div>
         <div class="card-body screen">
+          <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('code-entry-input')">
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ Lodge Member — I have my personal code</div>
+              <div style="font-size:.75rem;opacity:.7">Your code was included in your invitation email</div>
+            </button>
+            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showFallback()">
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">❓ Lodge Member — I forgot my code</div>
+              <div style="font-size:.75rem;opacity:.7">Enter your name and email instead</div>
+            </button>
+            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('guest')">
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest</div>
+              <div style="font-size:.75rem;opacity:.7">Visiting from another lodge</div>
+            </button>
+          </div>
+        </div>`;
+      break;
+
+    case 'code-entry-input':
+      const mtgDateCI = formatDate(_meetingDate);
+      app.innerHTML = `
+        <div class="card-head">
+          <div class="card-head-title">Meeting Response</div>
+          <div class="card-head-sub">📅 ${mtgDateCI} · Lodge ${escHtml(_lodgeNum)}</div>
+        </div>
+        <div class="card-body screen">
           <div class="field-group">
             <label for="code-input">Your personal code for this meeting</label>
             <input id="code-input" class="code-input" type="text" placeholder="e.g. ${exampleCode()}"
               autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
               oninput="this.value=this.value.toUpperCase()"
               onkeydown="if(event.key==='Enter')validateCode()">
-            <div class="field-hint">Your code was included in your invitation email. It ends in <strong>-${escHtml(_suffix)}</strong>. You can paste it directly — spaces and dashes don't matter.</div>
+            <div class="field-hint">Your code ends in <strong>-${escHtml(_suffix)}</strong>. Spaces and dashes don't matter — you can paste it directly from your email.</div>
           </div>
           <div id="code-error" style="display:none"></div>
           <button class="btn btn-primary" onclick="validateCode()">Continue →</button>
-          <hr class="divider" style="margin-top:20px">
-          <button class="btn btn-outline" style="width:100%" onclick="showFallback()">👤 Guest or forgot your personal code?</button>
+          <button class="btn-link" style="display:block;text-align:center;width:100%;margin-top:12px" onclick="showScreen('code-entry')">← Back</button>
         </div>`;
       setTimeout(()=>document.getElementById('code-input')?.focus(), 100);
+      break;
+
+    case 'guest':
+      const mtgDateG = formatDate(_meetingDate);
+      app.innerHTML = `
+        <div class="card-head">
+          <div class="card-head-title">Guest Response</div>
+          <div class="card-head-sub">📅 ${mtgDateG} · Lodge ${escHtml(_lodgeNum)}</div>
+        </div>
+        <div class="card-body screen">
+          <div class="field-group">
+            <label for="guest-self-name">Your full name</label>
+            <input id="guest-self-name" type="text" placeholder="e.g. Fred Bloggs">
+          </div>
+          <div class="field-group">
+            <label for="guest-self-lodge">Your home lodge name &amp; number</label>
+            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
+          </div>
+          <div class="field-group">
+            <label for="guest-self-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="guest-self-email" type="email" placeholder="email@example.com">
+          </div>
+          <hr class="divider">
+          <label style="margin-bottom:10px">I will be:</label>
+          <div class="response-grid">
+            <button class="resp-btn apol" onclick="selectResponse('Apol',this)">
+              <span class="resp-icon">✉️</span>
+              <div class="resp-label">Sending Apologies</div>
+            </button>
+            <button class="resp-btn" onclick="selectResponse('MtgOnly',this)">
+              <span class="resp-icon">🏛️</span>
+              <div class="resp-label">Attending</div>
+              <div class="resp-sub">Meeting only</div>
+            </button>
+            <button class="resp-btn dining" onclick="selectResponse('MtgDining',this)">
+              <span class="resp-icon">🍽️</span>
+              <div class="resp-label">Attending</div>
+              <div class="resp-sub">Meeting + Dining</div>
+            </button>
+          </div>
+          <div id="dietary-section-guest" style="display:none;margin-top:16px">
+            <hr class="divider">
+            <div class="field-group">
+              <label for="dietary-sel-guest">Your dietary requirements</label>
+              <select id="dietary-sel-guest" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('dietary-text-guest',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="dietary-text-guest" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+            </div>
+          </div>
+          <div style="margin-top:20px">
+            <button class="btn btn-gold" id="submit-btn" onclick="submitGuestResponse()" disabled>Select a response above</button>
+          </div>
+          <button class="btn-link" style="display:block;text-align:center;width:100%;margin-top:10px" onclick="showScreen('code-entry')">← Back</button>
+        </div>`;
       break;
 
     case 'response':
@@ -568,17 +649,17 @@ function showScreen(screen, extra){
       const mtgDate3 = formatDate(_meetingDate);
       app.innerHTML = `
         <div class="card-head">
-          <div class="card-head-title">Meeting Response</div>
+          <div class="card-head-title">Lodge Member — Forgot Code</div>
           <div class="card-head-sub">📅 ${mtgDate3} · Lodge ${escHtml(_lodgeNum)}</div>
         </div>
         <div class="card-body screen">
-          <div class="alert alert-warn" style="margin-bottom:18px">
-            <span>⚠</span>
-            <div>Your code wasn't recognised. Please fill in your details below — the Secretary will match your response manually.</div>
+          <div class="alert alert-info" style="margin-bottom:18px">
+            <span>ℹ</span>
+            <div>Please enter your details — the Secretary will match your response.</div>
           </div>
           <div class="field-group">
             <label for="fb-name">Your name</label>
-            <input id="fb-name" type="text" placeholder="e.g. William Watson">
+            <input id="fb-name" type="text" placeholder="e.g. Fred Bloggs">
           </div>
           <div class="field-group">
             <label for="fb-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -603,7 +684,7 @@ function showScreen(screen, extra){
               <div class="resp-sub">Meeting + Dining</div>
             </button>
             <button class="resp-btn guest" onclick="selectResponse('MtgDiningGuest',this)">
-              <span class="resp-icon">🤝</span>
+              <span class="resp-icon">🍽️🤝</span>
               <div class="resp-label">Attending + Guest</div>
               <div class="resp-sub">Meeting, Dining &amp; Guest</div>
             </button>
@@ -641,7 +722,7 @@ function showScreen(screen, extra){
           <div style="margin-top:20px">
             <button class="btn btn-gold" id="submit-btn" onclick="submitResponse()" disabled>Select a response above</button>
           </div>
-          <button class="btn-link" style="display:block;text-align:center;width:100%;margin-top:10px" onclick="showScreen('code-entry')">← Try code again</button>
+          <button class="btn-link" style="display:block;text-align:center;width:100%;margin-top:10px" onclick="showScreen('code-entry')">← Back</button>
         </div>`;
       break;
   }
@@ -666,12 +747,16 @@ function selectResponse(val, btn){
   btn.classList.add('selected');
   const isDining = ['MtgDining','MtgDiningGuest'].includes(val);
   const isGuest  = val === 'MtgDiningGuest';
-  // Show dietary for any dining response
-  const dietSec   = document.getElementById('dietary-section')    || document.getElementById('dietary-section-fb');
-  if(dietSec) dietSec.style.display = isDining ? '' : 'none';
+  // Show dietary for any dining response — check all variants
+  ['dietary-section','dietary-section-fb','dietary-section-guest'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = isDining ? '' : 'none';
+  });
   // Show guest section only for MtgDiningGuest
-  const guestSec  = document.getElementById('guest-section')      || document.getElementById('guest-section-fb');
-  if(guestSec) guestSec.style.display = isGuest ? '' : 'none';
+  ['guest-section','guest-section-fb'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = isGuest ? '' : 'none';
+  });
   updateSubmitBtn();
 }
 
@@ -738,21 +823,56 @@ function validateCode(){
     return;
   }
 
+  // If a prefix is known (C, L, ROS, AAR), code must start with it
+  if(_lodgePrefix && !normalised.startsWith(_lodgePrefix)){
+    showError(errEl, `Code not recognised — your code should start with <strong>${escHtml(_lodgePrefix)}</strong> for this lodge. Please check and try again, or use the button below.`);
+    input.select(); input.focus();
+    return;
+  }
+
   _code    = normalised;
   _matched = true;
   showScreen('response');
 }
 
-function clearAndRespond(){
-  localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
-  _response=''; _code=''; _matched=false; _guest='';
-  _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
-  showScreen('code-entry');
-}
-
 // ═══════════════════════════════════════════════════════════════
 //  SUBMIT
 // ═══════════════════════════════════════════════════════════════
+async function submitGuestResponse(){
+  const btn = document.getElementById('submit-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
+
+  const guestSelfName  = (document.getElementById('guest-self-name') ||{value:''}).value.trim();
+  const guestSelfLodge = (document.getElementById('guest-self-lodge')||{value:''}).value.trim();
+  const guestSelfEmail = (document.getElementById('guest-self-email')||{value:''}).value.trim();
+  const dietSel  = document.getElementById('dietary-sel-guest');
+  const dietText = document.getElementById('dietary-text-guest');
+  _dietary = (dietSel&&dietSel.value==='specify'&&dietText) ? dietText.value.trim() : '';
+
+  try{
+    const body = new URLSearchParams();
+    body.append(FORM_FIELDS.code,          '(guest)');
+    body.append(FORM_FIELDS.response,      _response);
+    body.append(FORM_FIELDS.guestName,     '');
+    body.append(FORM_FIELDS.fallbackName,  guestSelfName);
+    body.append(FORM_FIELDS.fallbackEmail, guestSelfEmail);
+    body.append(FORM_FIELDS.lodge,         _lodgeNum);
+    body.append(FORM_FIELDS.meetingDate,   _meetingDate);
+    body.append(FORM_FIELDS.surname,       '');
+    body.append(FORM_FIELDS.dietary,       _dietary);
+    body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
+    body.append(FORM_FIELDS.guestDietary,  '');
+    await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
+  } catch(e){ /* no-cors always throws */ }
+
+  localStorage.setItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
+    response: _response, guest: guestSelfName, submitted: new Date().toISOString()
+  }));
+  _guest = guestSelfName;
+  _matched = false;
+  showSuccess();
+}
+
 async function submitResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
