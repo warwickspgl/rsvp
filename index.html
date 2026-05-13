@@ -422,6 +422,15 @@ function init(){
     return;
   }
 
+  // Check meeting hasn't already passed (allow responses on the day itself)
+  if(_meetingDate){
+    const mtgEnd = new Date(_meetingDate+'T23:59:59');
+    if(mtgEnd < new Date()){
+      showScreen('closed');
+      return;
+    }
+  }
+
   showScreen('code-entry');
 }
 
@@ -447,6 +456,21 @@ function showScreen(screen, extra){
   document.getElementById('footer-text').style.display = '';
 
   switch(screen){
+
+    case 'closed':
+      app.innerHTML = `
+        <div class="card-head">
+          <div class="card-head-title">Meeting Response Closed</div>
+        </div>
+        <div class="card-body screen">
+          <div class="success-icon">📅</div>
+          <div class="success-title" style="font-size:1.1rem">This meeting has passed</div>
+          <div class="success-detail" style="margin-top:12px">
+            The response window for <strong>${formatDate(_meetingDate)}</strong> is now closed.<br><br>
+            If you need to update your response please contact your Secretary directly.
+          </div>
+        </div>`;
+      break;
 
     case 'no-params':
       app.innerHTML = `
@@ -944,12 +968,12 @@ function showSuccess(){
       <div class="success-icon">✅</div>
       <div class="success-title">Thank you</div>
       <div class="response-badge ${badge}">${label}</div>
-      ${_guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">Guest: ${escHtml(_guest)}</div>` : ''}
+      ${_guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">${_code==='(guest)' ? 'Responding as: ' : 'Guest: '}${escHtml(_guest)}</div>` : ''}
       <div class="success-detail">
-        Your response has been recorded${!_matched?' and flagged for the Secretary to confirm':''}.
+        Your response has been recorded.
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
-      ${!_matched ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
+      ${(!_matched && _code!=='(guest)') ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
         <span>ℹ</span><div>Your code wasn't recognised — the Secretary will follow up to confirm your response.</div>
       </div>` : ''}
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
