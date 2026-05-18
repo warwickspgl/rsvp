@@ -618,10 +618,7 @@ function showScreen(screen, extra){
           </div>
           <div class="field-group" style="margin-bottom:14px">
             <label for="surname-input">Your surname <span style="font-weight:400;color:var(--muted)">(optional — helps us verify your response)</span></label>
-            <input id="surname-input" type="text" placeholder="e.g. Smith">
-          </div>
-          <label style="margin-bottom:10px">I will be:</label>
-          <div class="response-grid" id="resp-grid">
+            <input id="surname-input" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
             <button class="resp-btn apol" onclick="selectResponse('Apol',this)">
               <span class="resp-icon">✉️</span>
               <div class="resp-label">Sending Apologies</div>
@@ -691,8 +688,12 @@ function showScreen(screen, extra){
             <div>Please enter your details — the Secretary will match your response.</div>
           </div>
           <div class="field-group">
-            <label for="fb-name">Your name</label>
-            <input id="fb-name" type="text" placeholder="e.g. Fred Bloggs">
+            <label for="forename-input">Forename</label>
+            <input id="forename-input" type="text" placeholder="e.g. John" oninput="updateSubmitBtn()">
+          </div>
+          <div class="field-group">
+            <label for="surname-input">Surname</label>
+            <input id="surname-input" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
             <label for="fb-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -798,7 +799,13 @@ function updateSubmitBtn(){
   if(!btn) return;
   const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
   const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
-  const ready   = _response !== '' && guestOk;
+  // Require forename + surname if in name-entry flow
+  const forenameEl = document.getElementById('forename-input');
+  const surnameEl  = document.getElementById('surname-input');
+  const nameOk = (!forenameEl && !surnameEl) ||
+    (forenameEl && forenameEl.value.trim().length > 0 &&
+     surnameEl  && surnameEl.value.trim().length > 0);
+  const ready = _response !== '' && guestOk && nameOk;
   btn.disabled    = !ready;
   btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
 }
@@ -916,7 +923,9 @@ async function submitResponse(){
   _surname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   _forename = (document.getElementById('forename-input')||{value:''}).value.trim();
 
-  const fbName  = (document.getElementById('fb-name') ||{value:''}).value.trim();
+  const fbForename = (document.getElementById('forename-input')||{value:''}).value.trim();
+  const fbSurname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
+  const fbName  = [fbForename, fbSurname].filter(Boolean).join(' ');
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
 
   // Dietary — use text if "specify" selected
