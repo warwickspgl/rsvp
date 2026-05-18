@@ -350,8 +350,10 @@
 </div>
 
 <div class="footer" id="footer-text" style="display:none">
-  Your response is recorded against your lodge code only. No personal data is stored on any public system.
-  If you have difficulty responding, please contact your Secretary directly.
+  Your name and response are stored securely on provincial servers solely to assist your lodge secretary.
+  Please do not enter any data you consider confidential. Email address is optional.
+  For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
+  All data is deleted automatically 7 days after the meeting date.
 </div>
 
 <script>
@@ -507,17 +509,17 @@ function showScreen(screen, extra){
         <div class="card-body screen">
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('code-entry-input')">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ Lodge Member — I have my personal code</div>
-              <div style="font-size:.75rem;opacity:.7">Your code was included in your invitation email</div>
-            </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showFallback()">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">❓ Lodge Member — I forgot my code</div>
-              <div style="font-size:.75rem;opacity:.7">Enter your name and email instead</div>
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ Lodge Member — Register my attendance</div>
+              <div style="font-size:.75rem;opacity:.7">Enter your name and response</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('guest')">
               <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest</div>
               <div style="font-size:.75rem;opacity:.7">Visiting from another lodge</div>
+            </button>
+            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px;opacity:.7;border-style:dashed" onclick="showScreen('code-entry-input')">
+              <div style="font-weight:600;font-size:.82rem;margin-bottom:2px">🔑 I have a personal privacy code</div>
+              <div style="font-size:.72rem;opacity:.7">Use this if your secretary provided a private code</div>
             </button>
           </div>
         </div>`;
@@ -680,7 +682,7 @@ function showScreen(screen, extra){
       const mtgDate3 = formatDate(_meetingDate);
       app.innerHTML = `
         <div class="card-head">
-          <div class="card-head-title">Lodge Member — Forgot Code</div>
+          <div class="card-head-title">Lodge Member — Register Attendance</div>
           <div class="card-head-sub">📅 ${mtgDate3} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
