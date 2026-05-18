@@ -370,6 +370,7 @@ const FORM_FIELDS = {
   lodge:         'entry.1360831682',
   meetingDate:   'entry.2025974007',
   surname:       'entry.1418117909',
+  forename:      'entry.1167379206',
   dietary:       'entry.524420489',
   guestLodge:    'entry.1732070911',
   guestDietary:  'entry.349902561'
@@ -889,6 +890,7 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       '');
+    body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
     body.append(FORM_FIELDS.guestDietary,  '');
@@ -909,7 +911,8 @@ async function submitResponse(){
 
   const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
   _guest   = (_response==='MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
-  _surname = (document.getElementById('surname-input')||{value:''}).value.trim();
+  _surname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
+  _forename = (document.getElementById('forename-input')||{value:''}).value.trim();
 
   const fbName  = (document.getElementById('fb-name') ||{value:''}).value.trim();
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
@@ -935,6 +938,7 @@ async function submitResponse(){
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       _surname);
+    body.append(FORM_FIELDS.forename,      _forename);
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    _guestLodge);
     body.append(FORM_FIELDS.guestDietary,  _guestDietary);
@@ -953,7 +957,7 @@ async function submitResponse(){
 function clearAndRespond(){
   localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
   _response=''; _code=''; _matched=false; _guest=''; _isMember=false;
-  _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
+  _surname=''; _forename=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
 }
 
