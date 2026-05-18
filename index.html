@@ -557,8 +557,8 @@ function showScreen(screen, extra){
         </div>
         <div class="card-body screen">
           <div class="field-group">
-            <label for="guest-self-name">Your full name</label>
-            <input id="guest-self-name" type="text" placeholder="e.g. Fred Bloggs">
+            <label for="guest-self-name">Your full name <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
             <label for="guest-self-lodge">Your home lodge name &amp; number</label>
@@ -802,9 +802,11 @@ function updateSubmitBtn(){
   // Require forename + surname if in name-entry flow
   const forenameEl = document.getElementById('forename-input');
   const surnameEl  = document.getElementById('surname-input');
-  const nameOk = (!forenameEl && !surnameEl) ||
+  const guestNameEl = document.getElementById('guest-self-name');
+  const nameOk = (!forenameEl && !surnameEl && !guestNameEl) ||
     (forenameEl && forenameEl.value.trim().length > 0 &&
-     surnameEl  && surnameEl.value.trim().length > 0);
+     surnameEl  && surnameEl.value.trim().length  > 0) ||
+    (guestNameEl && guestNameEl.value.trim().length > 1);
   const ready = _response !== '' && guestOk && nameOk;
   btn.disabled    = !ready;
   btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
@@ -882,7 +884,7 @@ async function submitGuestResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
 
-  const guestSelfName  = (document.getElementById('guest-self-name') ||{value:''}).value.trim();
+  const guestSelfName  = (document.getElementById('guest-self-name')||{value:''}).value.trim();
   const guestSelfLodge = (document.getElementById('guest-self-lodge')||{value:''}).value.trim();
   const guestSelfEmail = (document.getElementById('guest-self-email')||{value:''}).value.trim();
   const dietSel  = document.getElementById('dietary-sel-guest');
@@ -899,6 +901,7 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       '');
+    body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
