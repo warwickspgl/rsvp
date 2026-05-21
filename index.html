@@ -510,12 +510,12 @@ function showScreen(screen, extra){
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
           <div style="display:flex;flex-direction:column;gap:10px">
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showFallback()">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ Lodge Member — Register my attendance</div>
-              <div style="font-size:.75rem;opacity:.7">Enter your name and response</div>
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ I am a Member of this Lodge</div>
+              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('guest')">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest</div>
-              <div style="font-size:.75rem;opacity:.7">Visiting from another lodge</div>
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest or Visitor</div>
+              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px;opacity:.7;border-style:dashed" onclick="showScreen('code-entry-input')">
               <div style="font-weight:600;font-size:.82rem;margin-bottom:2px">🔑 I have a personal privacy code</div>
@@ -679,7 +679,7 @@ function showScreen(screen, extra){
       const mtgDate3 = formatDate(_meetingDate);
       app.innerHTML = `
         <div class="card-head">
-          <div class="card-head-title">Lodge Member — Register Attendance</div>
+          <div class="card-head-title">Lodge Member — Attendance &amp; Apologies</div>
           <div class="card-head-sub">📅 ${mtgDate3} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
