@@ -387,6 +387,7 @@ let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
 let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
 let _meetingVenue='';   // venue/address from URL param
+let _lodgeFullName=''; // full lodge name from URL param n=
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
 let _lodgeName  = '';   // not stored — derived from URL only
 let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
@@ -405,8 +406,9 @@ function init(){
   const params = new URLSearchParams(window.location.search);
   _lodge       = params.get('l') || '';
   _meetingDate = params.get('d') || '';
-  _meetingTime = params.get('t') || '';
-  _meetingVenue= params.get('v') || '';
+  _meetingTime    = params.get('t') || '';
+  _meetingVenue   = params.get('v') || '';
+  _lodgeFullName  = params.get('n') || '';
 
   // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
   // Extract numeric part for display and matching
@@ -455,6 +457,7 @@ function meetingSuffixFromDate(dateStr){
 // Chapters use C prefix, everything else L (we can't know order from URL alone)
 // So just use the lodge number as-is for the example
 function lodgeDisplayLabel(){
+  if(_lodgeFullName) return _lodgeFullName;
   const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
   const type = labels[_lodgePrefix] || 'Lodge';
   return `${type} ${_lodgeNum}`;
@@ -1005,7 +1008,7 @@ function generateICS(){
     'UID:'+uid,'DTSTAMP:'+now,
     'DTSTART;TZID=Europe/London:'+d+'T'+tim,
     'DTEND;TZID=Europe/London:'+d+'T'+endT,
-    'SUMMARY:'+lodge+' - Regular Meeting',
+    'SUMMARY:'+lodge+' - Meeting',
     _meetingVenue ? 'LOCATION:'+_meetingVenue : '',
     'DESCRIPTION:Lodge meeting - '+lodge,
     'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
