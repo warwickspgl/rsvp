@@ -386,6 +386,7 @@ let _lodgeNum   = '';   // numeric part e.g. '1630'
 let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
 let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
+let _fbEmail    = '';   // fallback email entered by member
 let _meetingVenue='';   // venue/address from URL param
 let _lodgeFullName=''; // full lodge name from URL param n=
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
@@ -941,6 +942,7 @@ async function submitResponse(){
   const fbSurname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   const fbName  = [fbForename, fbSurname].filter(Boolean).join(' ');
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
+  _fbEmail = fbEmail;  // store for showSuccess message
 
   // Dietary — use text if "specify" selected
   const dietSel  = document.getElementById('dietary-sel')   || document.getElementById('dietary-sel-fb');
@@ -1049,9 +1051,7 @@ function showSuccess(){
         Your response has been recorded.
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
-      ${(!_matched && _code!=='(guest)') ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
-        <span>ℹ</span><div>Your code wasn't recognised — the Secretary will follow up to confirm your response.</div>
-      </div>` : ''}
+
       ${(_response !== 'Apol' && _meetingTime) ? `
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
