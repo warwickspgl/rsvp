@@ -385,6 +385,8 @@ let _lodge      = '';   // lodge param from URL e.g. 'C1630' or '9312'
 let _lodgeNum   = '';   // numeric part e.g. '1630'
 let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
+let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
+let _meetingVenue='';   // venue/address from URL param
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
 let _lodgeName  = '';   // not stored — derived from URL only
 let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
@@ -403,6 +405,8 @@ function init(){
   const params = new URLSearchParams(window.location.search);
   _lodge       = params.get('l') || '';
   _meetingDate = params.get('d') || '';
+  _meetingTime = params.get('t') || '';
+  _meetingVenue= params.get('v') || '';
 
   // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
   // Extract numeric part for display and matching
@@ -827,6 +831,10 @@ function showAlreadySubmitted(saved){
       <div class="response-badge ${badge}">${label}</div>
       ${saved.guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">Guest: ${escHtml(saved.guest)}</div>` : ''}
       <div class="success-detail">You have already responded for this meeting.<br>If you need to change your response, please contact your Secretary directly.</div>
+      ${(_response !== 'Apol' && _meetingTime) ? `
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
+      </button>` : ''}
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
@@ -975,6 +983,47 @@ function clearAndRespond(){
   showScreen('code-entry');
 }
 
+function generateICS(){
+  var d   = _meetingDate.replace(/-/g,'');
+  var tim = (_meetingTime||'18:00').replace(':','')+'00';
+  var hh  = parseInt((_meetingTime||'18:00').split(':')[0]);
+  var mm  = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
+  // Duration: 3.5hrs for dining, 2.5hrs for meeting only
+  var isDining = (_response==='MtgDining'||_response==='MtgDiningGuest');
+  var durMins  = isDining ? 210 : 150;
+  var endMins  = (hh*60 + mm + durMins) % (24*60);
+  var endHH = String(Math.floor(endMins/60)).padStart(2,'0');
+  var endMM = String(endMins%60).padStart(2,'0');
+  var endT  = endHH+endMM+'00';
+  var uid   = 'rsvp-'+_lodge+'-'+_meetingDate+'@warwickspgl.org.uk';
+  var lodge = lodgeDisplayLabel();
+  var now   = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  var lines = [
+    'BEGIN:VCALENDAR','VERSION:2.0',
+    'PRODID:-//Provincial Grand Lodge of Warwickshire//RSVP//EN',
+    'CALSCALE:GREGORIAN','BEGIN:VEVENT',
+    'UID:'+uid,'DTSTAMP:'+now,
+    'DTSTART;TZID=Europe/London:'+d+'T'+tim,
+    'DTEND;TZID=Europe/London:'+d+'T'+endT,
+    'SUMMARY:'+lodge+' - Regular Meeting',
+    _meetingVenue ? 'LOCATION:'+_meetingVenue : '',
+    'DESCRIPTION:Lodge meeting - '+lodge,
+    'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
+    'DESCRIPTION:Reminder - '+lodge+' meeting tonight',
+    'END:VALARM','END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean);
+  return lines.join('\r\n');
+}
+
+function downloadCalendar(){
+  var blob = new Blob([generateICS()], {type:'text/calendar;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href=url; a.download='meeting-'+_meetingDate+'.ics';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 function showSuccess(){
   const app   = document.getElementById('app');
   const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest' };
@@ -1000,6 +1049,10 @@ function showSuccess(){
       ${(!_matched && _code!=='(guest)') ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
         <span>ℹ</span><div>Your code wasn't recognised — the Secretary will follow up to confirm your response.</div>
       </div>` : ''}
+      ${(_response !== 'Apol' && _meetingTime) ? `
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
+      </button>` : ''}
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
