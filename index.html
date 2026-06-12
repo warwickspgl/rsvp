@@ -350,8 +350,10 @@
 </div>
 
 <div class="footer" id="footer-text" style="display:none">
-  Your response is recorded against your lodge code only. No personal data is stored on any public system.
-  If you have difficulty responding, please contact your Secretary directly.
+  Your name and response are stored securely on provincial servers solely to assist your lodge secretary.
+  Please do not enter any data you consider confidential. Email address is optional.
+  For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
+  All data is deleted automatically 7 days after the meeting date.
 </div>
 
 <script>
@@ -370,6 +372,7 @@ const FORM_FIELDS = {
   lodge:         'entry.1360831682',
   meetingDate:   'entry.2025974007',
   surname:       'entry.1418117909',
+  forename:      'entry.1167379206',
   dietary:       'entry.524420489',
   guestLodge:    'entry.1732070911',
   guestDietary:  'entry.349902561',
@@ -384,6 +387,10 @@ let _lodge      = '';   // lodge param from URL e.g. 'C1630' or '9312'
 let _lodgeNum   = '';   // numeric part e.g. '1630'
 let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
+let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
+let _fbEmail    = '';   // fallback email entered by member
+let _meetingVenue='';   // venue/address from URL param
+let _lodgeFullName=''; // full lodge name from URL param n=
 let _suffix     = '';   // meeting suffix e.g. 'MAY26' — extracted from code
 let _lodgeName  = '';   // not stored — derived from URL only
 let _code       = '';   // full code as entered e.g. 'L9312ABC-MAY26'
@@ -402,6 +409,9 @@ function init(){
   const params = new URLSearchParams(window.location.search);
   _lodge       = params.get('l') || '';
   _meetingDate = params.get('d') || '';
+  _meetingTime    = params.get('t') || '';
+  _meetingVenue   = params.get('v') || '';
+  _lodgeFullName  = params.get('n') || '';
 
   // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
   // Extract numeric part for display and matching
@@ -450,6 +460,7 @@ function meetingSuffixFromDate(dateStr){
 // Chapters use C prefix, everything else L (we can't know order from URL alone)
 // So just use the lodge number as-is for the example
 function lodgeDisplayLabel(){
+  if(_lodgeFullName) return _lodgeFullName;
   const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
   const type = labels[_lodgePrefix] || 'Lodge';
   return `${type} ${_lodgeNum}`;
@@ -508,17 +519,17 @@ function showScreen(screen, extra){
         <div class="card-body screen">
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
           <div style="display:flex;flex-direction:column;gap:10px">
-            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('code-entry-input')">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ Lodge Member — I have my personal code</div>
-              <div style="font-size:.75rem;opacity:.7">Your code was included in your invitation email</div>
-            </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showFallback()">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">❓ Lodge Member — I forgot my code</div>
-              <div style="font-size:.75rem;opacity:.7">Enter your name and email instead</div>
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ I am a Member of this Lodge</div>
+              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('guest')">
-              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest</div>
-              <div style="font-size:.75rem;opacity:.7">Visiting from another lodge</div>
+              <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest or Visitor</div>
+              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
+            </button>
+            <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px;opacity:.7;border-style:dashed" onclick="showScreen('code-entry-input')">
+              <div style="font-weight:600;font-size:.82rem;margin-bottom:2px">🔑 I have a personal privacy code</div>
+              <div style="font-size:.72rem;opacity:.7">Use this if your secretary provided a private code</div>
             </button>
           </div>
         </div>`;
@@ -556,20 +567,12 @@ function showScreen(screen, extra){
         </div>
         <div class="card-body screen">
           <div class="field-group">
-            <label for="guest-self-name">Your full name</label>
-            <input id="guest-self-name" type="text" placeholder="e.g. Fred Bloggs">
+            <label for="guest-self-name">Your full name <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
             <label for="guest-self-lodge">Your home lodge name &amp; number</label>
-            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
-          </div>
-          <div class="field-group">
-            <label for="guest-self-title">Your Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-            <input id="guest-self-title" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
-          </div>
-          <div class="field-group">
-            <label for="guest-self-rank">Your rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-            <input id="guest-self-rank" type="text" placeholder="e.g. PPrJGW">
+            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
           </div>
           <div class="field-group">
             <label for="guest-self-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -625,10 +628,7 @@ function showScreen(screen, extra){
           </div>
           <div class="field-group" style="margin-bottom:14px">
             <label for="surname-input">Your surname <span style="font-weight:400;color:var(--muted)">(optional — helps us verify your response)</span></label>
-            <input id="surname-input" type="text" placeholder="e.g. Watson">
-          </div>
-          <label style="margin-bottom:10px">I will be:</label>
-          <div class="response-grid" id="resp-grid">
+            <input id="surname-input" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
             <button class="resp-btn apol" onclick="selectResponse('Apol',this)">
               <span class="resp-icon">✉️</span>
               <div class="resp-label">Sending Apologies</div>
@@ -668,7 +668,7 @@ function showScreen(screen, extra){
             </div>
             <div class="field-group">
               <label for="guest-lodge">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-lodge" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
+              <input id="guest-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
             </div>
             <div class="field-group">
               <label for="guest-title">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -697,7 +697,7 @@ function showScreen(screen, extra){
       const mtgDate3 = formatDate(_meetingDate);
       app.innerHTML = `
         <div class="card-head">
-          <div class="card-head-title">Lodge Member — Forgot Code</div>
+          <div class="card-head-title">Lodge Member — Attendance &amp; Apologies</div>
           <div class="card-head-sub">📅 ${mtgDate3} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
@@ -706,8 +706,12 @@ function showScreen(screen, extra){
             <div>Please enter your details — the Secretary will match your response.</div>
           </div>
           <div class="field-group">
-            <label for="fb-name">Your name</label>
-            <input id="fb-name" type="text" placeholder="e.g. Fred Bloggs">
+            <label for="forename-input">Forename</label>
+            <input id="forename-input" type="text" placeholder="e.g. John" oninput="updateSubmitBtn()">
+          </div>
+          <div class="field-group">
+            <label for="surname-input">Surname</label>
+            <input id="surname-input" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
             <label for="fb-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -756,7 +760,7 @@ function showScreen(screen, extra){
             </div>
             <div class="field-group">
               <label for="guest-lodge-fb">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-lodge-fb" type="text" placeholder="e.g. Lodge of Serenity No. 9312">
+              <input id="guest-lodge-fb" type="text" placeholder="e.g. Lodge of Example No. 1234">
             </div>
             <div class="field-group">
               <label for="guest-title-fb">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
@@ -821,7 +825,15 @@ function updateSubmitBtn(){
   if(!btn) return;
   const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
   const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
-  const ready   = _response !== '' && guestOk;
+  // Require forename + surname if in name-entry flow
+  const forenameEl = document.getElementById('forename-input');
+  const surnameEl  = document.getElementById('surname-input');
+  const guestNameEl = document.getElementById('guest-self-name');
+  const nameOk = (!forenameEl && !surnameEl && !guestNameEl) ||
+    (forenameEl && forenameEl.value.trim().length > 0 &&
+     surnameEl  && surnameEl.value.trim().length  > 0) ||
+    (guestNameEl && guestNameEl.value.trim().length > 1);
+  const ready = _response !== '' && guestOk && nameOk;
   btn.disabled    = !ready;
   btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
 }
@@ -841,6 +853,10 @@ function showAlreadySubmitted(saved){
       <div class="response-badge ${badge}">${label}</div>
       ${saved.guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">Guest: ${escHtml(saved.guest)}</div>` : ''}
       <div class="success-detail">You have already responded for this meeting.<br>If you need to change your response, please contact your Secretary directly.</div>
+      ${(_response !== 'Apol' && _meetingTime) ? `
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
+      </button>` : ''}
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
@@ -898,7 +914,7 @@ async function submitGuestResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
 
-  const guestSelfName  = (document.getElementById('guest-self-name') ||{value:''}).value.trim();
+  const guestSelfName  = (document.getElementById('guest-self-name')||{value:''}).value.trim();
   const guestSelfLodge = (document.getElementById('guest-self-lodge')||{value:''}).value.trim();
   const guestSelfEmail = (document.getElementById('guest-self-email')||{value:''}).value.trim();
   const dietSel  = document.getElementById('dietary-sel-guest');
@@ -915,6 +931,8 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       '');
+    body.append(FORM_FIELDS.forename,      '');
+    body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
     body.append(FORM_FIELDS.guestDietary,  '');
@@ -937,10 +955,14 @@ async function submitResponse(){
 
   const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
   _guest   = (_response==='MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
-  _surname = (document.getElementById('surname-input')||{value:''}).value.trim();
+  _surname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
+  _forename = (document.getElementById('forename-input')||{value:''}).value.trim();
 
-  const fbName  = (document.getElementById('fb-name') ||{value:''}).value.trim();
+  const fbForename = (document.getElementById('forename-input')||{value:''}).value.trim();
+  const fbSurname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
+  const fbName  = [fbForename, fbSurname].filter(Boolean).join(' ');
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
+  _fbEmail = fbEmail;  // store for showSuccess message
 
   // Dietary — use text if "specify" selected
   const dietSel  = document.getElementById('dietary-sel')   || document.getElementById('dietary-sel-fb');
@@ -963,6 +985,7 @@ async function submitResponse(){
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       _surname);
+    body.append(FORM_FIELDS.forename,      _forename);
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    _guestLodge);
     body.append(FORM_FIELDS.guestDietary,  _guestDietary);
@@ -985,8 +1008,49 @@ async function submitResponse(){
 function clearAndRespond(){
   localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
   _response=''; _code=''; _matched=false; _guest=''; _isMember=false;
-  _surname=''; _dietary=''; _guestLodge=''; _guestDietary='';
+  _surname=''; _forename=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
+}
+
+function generateICS(){
+  var d   = _meetingDate.replace(/-/g,'');
+  var tim = (_meetingTime||'18:00').replace(':','')+'00';
+  var hh  = parseInt((_meetingTime||'18:00').split(':')[0]);
+  var mm  = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
+  // Duration: 3.5hrs for dining, 2.5hrs for meeting only
+  var isDining = (_response==='MtgDining'||_response==='MtgDiningGuest');
+  var durMins  = isDining ? 210 : 150;
+  var endMins  = (hh*60 + mm + durMins) % (24*60);
+  var endHH = String(Math.floor(endMins/60)).padStart(2,'0');
+  var endMM = String(endMins%60).padStart(2,'0');
+  var endT  = endHH+endMM+'00';
+  var uid   = 'rsvp-'+_lodge+'-'+_meetingDate+'@warwickspgl.org.uk';
+  var lodge = lodgeDisplayLabel();
+  var now   = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  var lines = [
+    'BEGIN:VCALENDAR','VERSION:2.0',
+    'PRODID:-//Provincial Grand Lodge of Warwickshire//RSVP//EN',
+    'CALSCALE:GREGORIAN','BEGIN:VEVENT',
+    'UID:'+uid,'DTSTAMP:'+now,
+    'DTSTART;TZID=Europe/London:'+d+'T'+tim,
+    'DTEND;TZID=Europe/London:'+d+'T'+endT,
+    'SUMMARY:'+lodge+' - Meeting',
+    _meetingVenue ? 'LOCATION:'+_meetingVenue : '',
+    'DESCRIPTION:Lodge meeting - '+lodge,
+    'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
+    'DESCRIPTION:Reminder - '+lodge+' meeting tonight',
+    'END:VALARM','END:VEVENT','END:VCALENDAR'
+  ].filter(Boolean);
+  return lines.join('\r\n');
+}
+
+function downloadCalendar(){
+  var blob = new Blob([generateICS()], {type:'text/calendar;charset=utf-8'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href=url; a.download='meeting-'+_meetingDate+'.ics';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
 function showSuccess(){
@@ -1011,9 +1075,11 @@ function showSuccess(){
         Your response has been recorded.
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
-      ${(!_matched && _code!=='(guest)') ? `<div class="alert alert-info" style="margin-top:16px;text-align:left">
-        <span>ℹ</span><div>Your code wasn't recognised — the Secretary will follow up to confirm your response.</div>
-      </div>` : ''}
+
+      ${(_response !== 'Apol' && _meetingTime) ? `
+      <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
+      <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
+      </button>` : ''}
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button class="btn-link" style="display:block;text-align:center;width:100%" onclick="clearAndRespond()">📋 Submit a response for someone else</button>
     </div>`;
