@@ -380,6 +380,15 @@ const FORM_FIELDS = {
   guestRank:     'entry.855117827'
 };
 
+// ── Alteration notices (cancellations / postponements) ──────────────────────
+// alteration.txt lives at: https://raw.githubusercontent.com/warwickspgl/rsvp/main/alteration.txt
+// Format (one entry per line):
+//   L9312-C-14072025            cancelled on that date
+//   L9312-M-14072025-28072025   moved from that date (optional new date)
+//   C1630-C-03092025
+//   # lines starting with # are comments and are ignored
+const ALTERATION_URL = 'https://raw.githubusercontent.com/warwickspgl/rsvp/main/alteration.txt';
+
 // ═══════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════
@@ -403,12 +412,12 @@ let _guestLodge = '';
 let _guestDietary = '';
 
 // ═══════════════════════════════════════════════════════════════
-//  INIT
+//  INIT — async to allow alteration check before showing form
 // ═══════════════════════════════════════════════════════════════
-function init(){
+async function init(){
   const params = new URLSearchParams(window.location.search);
-  _lodge       = params.get('l') || '';
-  _meetingDate = params.get('d') || '';
+  _lodge          = params.get('l') || '';
+  _meetingDate    = params.get('d') || '';
   _meetingTime    = params.get('t') || '';
   _meetingVenue   = params.get('v') || '';
   _lodgeFullName  = params.get('n') || '';
@@ -426,7 +435,7 @@ function init(){
   // Derive expected suffix from the meeting date in the URL
   _suffix = meetingSuffixFromDate(_meetingDate);
 
-  // Check if already submitted for this meeting
+  // Check if already submitted for this meeting (before any network call)
   const storageKey = `rsvp_submitted_${_lodgeNum}_${_meetingDate}`;
   const saved = localStorage.getItem(storageKey);
   if(saved){
@@ -434,7 +443,7 @@ function init(){
     return;
   }
 
-  // Check meeting hasn't already passed (allow responses on the day itself)
+  // Past date check — takes priority over alteration check
   if(_meetingDate){
     const mtgEnd = new Date(_meetingDate+'T23:59:59');
     if(mtgEnd < new Date()){
@@ -443,7 +452,62 @@ function init(){
     }
   }
 
+  // Alteration check — only reached for future meetings not yet responded to
+  const alteration = await checkAlteration();
+  if(alteration){
+    showScreen(alteration.type === 'C' ? 'cancelled' : 'postponed', alteration);
+    return;
+  }
+
   showScreen('code-entry');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ALTERATION CHECK
+// ═══════════════════════════════════════════════════════════════
+async function checkAlteration(){
+  // Returns { type:'C'|'M', newDate:'Day D Month YYYY'|null } or null
+  if(!_lodge || !_meetingDate) return null;
+
+  // Convert YYYY-MM-DD → ddmmyyyy for matching against alteration.txt
+  const [yr, mo, dy] = _meetingDate.split('-');
+  const ddmmyyyy = `${dy}${mo}${yr}`;
+  const lodgeUC  = _lodge.toUpperCase();
+
+  try{
+    const resp = await fetch(ALTERATION_URL + '?_=' + Date.now());
+    if(!resp.ok) return null; // fail open — show normal form
+
+    const lines = (await resp.text()).split('\n');
+    for(const raw of lines){
+      const line = raw.trim();
+      if(!line || line.startsWith('#')) continue;
+
+      // Format: LXXXX-C-ddmmyyyy  or  LXXXX-M-ddmmyyyy-ddmmyyyy
+      // parts[0]=lodge, parts[1]=type(C|M), parts[2]=fromDate, parts[3]=toDate(optional)
+      const parts = line.split('-');
+      if(parts.length < 3) continue;
+      if(parts[0].toUpperCase() !== lodgeUC) continue;
+      if(parts[2] !== ddmmyyyy) continue;
+
+      const type = parts[1].toUpperCase();
+      if(type !== 'C' && type !== 'M') continue;
+
+      // Parse optional new date (parts[3] = ddmmyyyy, e.g. '28072025')
+      let newDate = null;
+      if(parts[3] && parts[3].length === 8){
+        const s = parts[3];
+        const d = new Date(`${s.slice(4)}-${s.slice(2,4)}-${s.slice(0,2)}T12:00:00`);
+        if(!isNaN(d)) newDate = d.toLocaleDateString('en-GB',{
+          weekday:'long', day:'numeric', month:'long', year:'numeric'
+        });
+      }
+      return { type, newDate };
+    }
+    return null; // no matching entry — show normal form
+  } catch(e){
+    return null; // network failure — fail open, show normal form
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -457,8 +521,6 @@ function meetingSuffixFromDate(dateStr){
 }
 
 // Derive a display label and example code prefix from the lodge number
-// Chapters use C prefix, everything else L (we can't know order from URL alone)
-// So just use the lodge number as-is for the example
 function lodgeDisplayLabel(){
   if(_lodgeFullName) return _lodgeFullName;
   const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
@@ -470,6 +532,7 @@ function exampleCode(){
   const pfx = _lodgePrefix || 'L';
   return `${pfx}${_lodgeNum}ABC-${_suffix||'MAY26'}`;
 }
+
 function showScreen(screen, extra){
   const app = document.getElementById('app');
   document.getElementById('footer-text').style.display = '';
@@ -502,6 +565,48 @@ function showScreen(screen, extra){
             <div>No meeting details found in this link. Please use the link provided in your invitation email.</div>
           </div>
           <p style="font-size:.82rem;color:var(--muted);line-height:1.6">If you are testing this page, please contact the Provincial office.</p>
+        </div>`;
+      break;
+
+    case 'cancelled':
+      app.innerHTML = `
+        <div class="card-head">
+          <div class="card-head-title" style="color:#fca5a5">Meeting Cancelled</div>
+        </div>
+        <div class="card-body screen">
+          <div class="success-icon">❌</div>
+          <div class="success-title" style="font-size:1.1rem;color:var(--red)">This meeting has been cancelled</div>
+          <div class="success-detail" style="margin-top:14px">
+            The meeting of <strong>${escHtml(lodgeDisplayLabel())}</strong> scheduled for
+            <strong>${escHtml(formatDate(_meetingDate))}</strong> has been cancelled.
+          </div>
+          <div class="alert alert-warn" style="margin-top:20px;margin-bottom:0">
+            <span>ℹ</span>
+            <div>Please contact your Secretary for further information. No response is required.</div>
+          </div>
+        </div>`;
+      break;
+
+    case 'postponed':
+      const newDateStr = (extra && extra.newDate)
+        ? `<br><br>The rescheduled date is <strong>${escHtml(extra.newDate)}</strong> — a new invitation will be sent when available.`
+        : `<br><br>A new date has not yet been confirmed. A new invitation will be sent in due course.`;
+      app.innerHTML = `
+        <div class="card-head">
+          <div class="card-head-title" style="color:var(--gold2)">Meeting Postponed</div>
+        </div>
+        <div class="card-body screen">
+          <div class="success-icon">📆</div>
+          <div class="success-title" style="font-size:1.1rem;color:var(--navy)">This meeting has been postponed</div>
+          <div class="success-detail" style="margin-top:14px">
+            The meeting of <strong>${escHtml(lodgeDisplayLabel())}</strong> scheduled for
+            <strong>${escHtml(formatDate(_meetingDate))}</strong> has been postponed.
+            ${newDateStr}
+          </div>
+          <div class="alert alert-info" style="margin-top:20px;margin-bottom:0">
+            <span>ℹ</span>
+            <div>Please contact your Secretary for further information. No response is required for the original date.</div>
+          </div>
         </div>`;
       break;
 
@@ -940,7 +1045,6 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
     body.append(FORM_FIELDS.surname,       '');
     body.append(FORM_FIELDS.forename,      '');
-    body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
     body.append(FORM_FIELDS.guestDietary,  '');
@@ -970,7 +1074,7 @@ async function submitResponse(){
   const fbSurname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   const fbName  = [fbForename, fbSurname].filter(Boolean).join(' ');
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
-  _fbEmail = fbEmail;  // store for showSuccess message
+  _fbEmail = fbEmail;
 
   // Dietary — use text if "specify" selected
   const dietSel  = document.getElementById('dietary-sel')   || document.getElementById('dietary-sel-fb');
@@ -1083,7 +1187,6 @@ function showSuccess(){
         Your response has been recorded.
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
-
       ${(_response !== 'Apol' && _meetingTime) ? `
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
