@@ -1124,33 +1124,66 @@ function clearAndRespond(){
   showScreen('code-entry');
 }
 
+// Returns the Europe/London UTC offset (in minutes) for a given UTC instant,
+// e.g. 0 for GMT, 60 for BST. Used to convert local meeting times to true UTC
+// so the .ics file has no ambiguous TZID and no VTIMEZONE dependency.
+function getLondonOffsetMinutes(utcDate){
+  var dtf = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+  var parts = {};
+  dtf.formatToParts(utcDate).forEach(function(p){ parts[p.type] = p.value; });
+  var asIfUTC = Date.UTC(parts.year, parts.month-1, parts.day, parts.hour, parts.minute, parts.second);
+  return Math.round((asIfUTC - utcDate.getTime()) / 60000);
+}
+
+// Escapes a value for use inside an iCalendar TEXT property (RFC 5545 §3.3.11):
+// backslash, semicolon, and comma must be backslash-escaped; newlines become \n.
+function escICS(s){
+  return String(s||'')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
 function generateICS(){
-  var d   = _meetingDate.replace(/-/g,'');
-  var tim = (_meetingTime||'18:00').replace(':','')+'00';
-  var hh  = parseInt((_meetingTime||'18:00').split(':')[0]);
-  var mm  = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
+  var hh = parseInt((_meetingTime||'18:00').split(':')[0]);
+  var mm = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
   // Duration: 3.5hrs for dining, 2.5hrs for meeting only
   var isDining = (_response==='MtgDining'||_response==='MtgDiningGuest');
   var durMins  = isDining ? 210 : 150;
-  var endMins  = (hh*60 + mm + durMins) % (24*60);
-  var endHH = String(Math.floor(endMins/60)).padStart(2,'0');
-  var endMM = String(endMins%60).padStart(2,'0');
-  var endT  = endHH+endMM+'00';
+
+  var dateParts = _meetingDate.split('-').map(Number); // [YYYY, MM, DD]
+
+  // First guess: treat the wall-clock time as if it were UTC, then find out
+  // what the actual Europe/London offset is on that date/time and correct for it.
+  var guessUTC   = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], hh, mm));
+  var offsetMins = getLondonOffsetMinutes(guessUTC);
+  var startUTC   = new Date(guessUTC.getTime() - offsetMins*60000);
+  var endUTC     = new Date(startUTC.getTime() + durMins*60000);
+
+  function fmtUTC(d){
+    return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  }
+
   var uid   = 'rsvp-'+_lodge+'-'+_meetingDate+'@warwickspgl.org.uk';
   var lodge = lodgeDisplayLabel();
-  var now   = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  var now   = fmtUTC(new Date());
   var lines = [
     'BEGIN:VCALENDAR','VERSION:2.0',
     'PRODID:-//Provincial Grand Lodge of Warwickshire//RSVP//EN',
     'CALSCALE:GREGORIAN','BEGIN:VEVENT',
     'UID:'+uid,'DTSTAMP:'+now,
-    'DTSTART;TZID=Europe/London:'+d+'T'+tim,
-    'DTEND;TZID=Europe/London:'+d+'T'+endT,
-    'SUMMARY:'+lodge+' - Meeting',
-    _meetingVenue ? 'LOCATION:'+_meetingVenue : '',
-    'DESCRIPTION:Lodge meeting - '+lodge,
+    'DTSTART:'+fmtUTC(startUTC),
+    'DTEND:'+fmtUTC(endUTC),
+    'SUMMARY:'+escICS(lodge+' - Meeting'),
+    _meetingVenue ? 'LOCATION:'+escICS(_meetingVenue) : '',
+    'DESCRIPTION:'+escICS('Lodge meeting - '+lodge),
     'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
-    'DESCRIPTION:Reminder - '+lodge+' meeting tonight',
+    'DESCRIPTION:'+escICS('Reminder - '+lodge+' meeting tonight'),
     'END:VALARM','END:VEVENT','END:VCALENDAR'
   ].filter(Boolean);
   return lines.join('\r\n');
