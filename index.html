@@ -351,7 +351,7 @@
 
 <div class="footer" id="footer-text" style="display:none">
   Your name and response are stored securely on provincial servers solely to assist your lodge secretary.
-  Please do not enter any data you consider confidential. Email address is optional.
+  Please do not enter any data you consider confidential. Guests and visitors are asked for an email address so the Secretary can confirm their booking; for members it is optional.
   For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
   All data is deleted automatically 7 days after the meeting date.
 </div>
@@ -410,6 +410,8 @@ let _isMember   = false; // true when member used forgot-code path
 let _dietary    = '';
 let _guestLodge = '';
 let _guestDietary = '';
+let _surname = '';
+let _forename = '';
 
 // ═══════════════════════════════════════════════════════════════
 //  INIT — async to allow alteration check before showing form
@@ -564,7 +566,7 @@ function showScreen(screen, extra){
             <span>⚠</span>
             <div>No meeting details found in this link. Please use the link provided in your invitation email.</div>
           </div>
-          <p style="font-size:.82rem;color:var(--muted);line-height:1.6">If you are testing this page, please contact the Provincial office.</p>
+          <p style="font-size:.82rem;color:var(--muted);line-height:1.6">If you are testing this page, please contact the Provincial Registrar.</p>
         </div>`;
       break;
 
@@ -671,25 +673,29 @@ function showScreen(screen, extra){
           <div class="card-head-sub">📅 ${mtgDateG} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
-          <div class="field-group">
-            <label for="guest-self-name">Your full name <span style="color:var(--red)">*</span></label>
-            <input id="guest-self-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
+          <div class="alert alert-info" style="margin-bottom:16px">
+            <span>ℹ</span>
+            <div>All fields marked <span style="color:var(--red)">*</span> are needed so the Secretary can record you correctly in the minutes and confirm your booking.</div>
           </div>
           <div class="field-group">
-            <label for="guest-self-lodge">Your home lodge name &amp; number</label>
-            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
+            <label for="guest-self-forename">Forename <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-forename" type="text" placeholder="e.g. John" autocomplete="given-name" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
-            <label for="guest-self-title">Your Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-            <input id="guest-self-title" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
+            <label for="guest-self-surname">Surname <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-surname" type="text" placeholder="e.g. Smith" autocomplete="family-name" oninput="updateSubmitBtn()">
+          </div>
+          ${titleFieldHtml('guest-self-title','Your Masonic title')}
+          ${rankFieldHtml('guest-self-rank','Your rank / honours')}
+          <div class="field-group">
+            <label for="guest-self-lodge">Your home lodge name &amp; number <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234" oninput="updateSubmitBtn()">
+            <div class="field-hint">Please include the lodge number.</div>
           </div>
           <div class="field-group">
-            <label for="guest-self-rank">Your rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-            <input id="guest-self-rank" type="text" placeholder="e.g. PPrJGW">
-          </div>
-          <div class="field-group">
-            <label for="guest-self-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-            <input id="guest-self-email" type="email" placeholder="email@example.com">
+            <label for="guest-self-email">Your email <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-email" type="email" placeholder="email@example.com" autocomplete="email" oninput="updateSubmitBtn()">
+            <div class="field-hint">Used only so the Secretary can confirm your booking.</div>
           </div>
           <hr class="divider">
           <label style="margin-bottom:10px">I will be:</label>
@@ -742,6 +748,9 @@ function showScreen(screen, extra){
           <div class="field-group" style="margin-bottom:14px">
             <label for="surname-input">Your surname <span style="font-weight:400;color:var(--muted)">(optional — helps us verify your response)</span></label>
             <input id="surname-input" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
+          </div>
+          <label style="margin-bottom:10px">I will be:</label>
+          <div class="response-grid">
             <button class="resp-btn apol" onclick="selectResponse('Apol',this)">
               <span class="resp-icon">✉️</span>
               <div class="resp-label">Sending Apologies</div>
@@ -775,30 +784,7 @@ function showScreen(screen, extra){
           </div>
           <div id="guest-section" style="display:none;margin-top:4px">
             <hr class="divider">
-            <div class="field-group">
-              <label for="guest-name">Guest's full name</label>
-              <input id="guest-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
-            </div>
-            <div class="field-group">
-              <label for="guest-lodge">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
-            </div>
-            <div class="field-group">
-              <label for="guest-title">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-title" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
-            </div>
-            <div class="field-group">
-              <label for="guest-rank">Guest's rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-rank" type="text" placeholder="e.g. PPrJGW">
-            </div>
-            <div class="field-group">
-              <label for="guest-dietary-sel">Guest's dietary requirements</label>
-              <select id="guest-dietary-sel" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text',this.value)">
-                <option value="">No special requirements</option>
-                <option value="specify">Please specify…</option>
-              </select>
-              <input id="guest-dietary-text" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
-            </div>
+            ${guestOfMemberFieldsHtml('')}
           </div>
           <div style="margin-top:20px">
             <button class="btn btn-gold" id="submit-btn" onclick="submitResponse()" disabled>Select a response above</button>
@@ -867,30 +853,7 @@ function showScreen(screen, extra){
           </div>
           <div id="guest-section-fb" style="display:none;margin-top:4px">
             <hr class="divider">
-            <div class="field-group">
-              <label for="guest-name-fb">Guest's full name</label>
-              <input id="guest-name-fb" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
-            </div>
-            <div class="field-group">
-              <label for="guest-lodge-fb">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-lodge-fb" type="text" placeholder="e.g. Lodge of Example No. 1234">
-            </div>
-            <div class="field-group">
-              <label for="guest-title-fb">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-title-fb" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
-            </div>
-            <div class="field-group">
-              <label for="guest-rank-fb">Guest's rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
-              <input id="guest-rank-fb" type="text" placeholder="e.g. PPrJGW">
-            </div>
-            <div class="field-group">
-              <label for="guest-dietary-sel-fb">Guest's dietary requirements</label>
-              <select id="guest-dietary-sel-fb" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text-fb',this.value)">
-                <option value="">No special requirements</option>
-                <option value="specify">Please specify…</option>
-              </select>
-              <input id="guest-dietary-text-fb" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
-            </div>
+            ${guestOfMemberFieldsHtml('-fb')}
           </div>
           <div style="margin-top:20px">
             <button class="btn btn-gold" id="submit-btn" onclick="submitResponse()" disabled>Select a response above</button>
@@ -933,22 +896,110 @@ function selectResponse(val, btn){
   updateSubmitBtn();
 }
 
+// ── Field helpers (title / rank / guest-of-member) ──────────────
+const TITLE_OPTIONS = ['Bro','W Bro','VW Bro','RW Bro','MW Bro','Comp','E Comp'];
+
+function titleFieldHtml(id, label){
+  return `<div class="field-group">
+    <label for="${id}">${label} <span style="color:var(--red)">*</span></label>
+    <select id="${id}" onchange="document.getElementById('${id}-other').style.display=this.value==='__other__'?'':'none';updateSubmitBtn()"
+      style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--cream)">
+      <option value="">— please select —</option>
+      ${TITLE_OPTIONS.map(t=>`<option>${t}</option>`).join('')}
+      <option value="__other__">Other…</option>
+    </select>
+    <input id="${id}-other" type="text" placeholder="Please type your title" style="display:none;margin-top:6px" oninput="updateSubmitBtn()">
+  </div>`;
+}
+function readTitle(id){
+  const sel=document.getElementById(id); if(!sel) return '';
+  if(sel.value==='__other__') return (document.getElementById(id+'-other')||{value:''}).value.trim();
+  return sel.value;
+}
+function rankFieldHtml(id, label){
+  return `<div class="field-group">
+    <label for="${id}">${label} <span style="color:var(--red)">*</span></label>
+    <input id="${id}" type="text" placeholder="e.g. PPrJGW, LGR, PAGDC" oninput="updateSubmitBtn()">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:.76rem;color:var(--muted);margin-top:6px;cursor:pointer">
+      <input type="checkbox" id="${id}-none" onchange="const r=document.getElementById('${id}');r.disabled=this.checked;if(this.checked)r.value='';updateSubmitBtn()"> No provincial or grand rank
+    </label>
+  </div>`;
+}
+function readRank(id){
+  const none=document.getElementById(id+'-none');
+  if(none&&none.checked) return '';
+  return (document.getElementById(id)||{value:''}).value.trim();
+}
+function rankOk(id){
+  const none=document.getElementById(id+'-none');
+  return (none&&none.checked) || (document.getElementById(id)||{value:''}).value.trim().length>0;
+}
+function guestOfMemberFieldsHtml(sfx){
+  return `
+    <div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-bottom:10px">Your guest's details</div>
+    <div class="field-group">
+      <label for="guest-forename${sfx}">Guest's forename <span style="color:var(--red)">*</span></label>
+      <input id="guest-forename${sfx}" type="text" placeholder="e.g. John" oninput="updateSubmitBtn()">
+    </div>
+    <div class="field-group">
+      <label for="guest-surname${sfx}">Guest's surname <span style="color:var(--red)">*</span></label>
+      <input id="guest-surname${sfx}" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
+    </div>
+    ${titleFieldHtml('guest-title'+sfx,"Guest's Masonic title")}
+    ${rankFieldHtml('guest-rank'+sfx,"Guest's rank / honours")}
+    <div class="field-group">
+      <label for="guest-lodge${sfx}">Guest's lodge name &amp; number <span style="color:var(--red)">*</span></label>
+      <input id="guest-lodge${sfx}" type="text" placeholder="e.g. Lodge of Example No. 1234" oninput="updateSubmitBtn()">
+      <div class="field-hint">Please include the lodge number.</div>
+    </div>
+    <div class="field-group">
+      <label for="guest-dietary-sel${sfx}">Guest's dietary requirements</label>
+      <select id="guest-dietary-sel${sfx}" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text${sfx}',this.value)">
+        <option value="">No special requirements</option>
+        <option value="specify">Please specify…</option>
+      </select>
+      <input id="guest-dietary-text${sfx}" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+    </div>`;
+}
+function val(id){ return (document.getElementById(id)||{value:''}).value.trim(); }
+function lodgeOk(id){ return /\d/.test(val(id)); }
+function emailOk(id){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val(id)); }
+function guestSfx(){ return document.getElementById('guest-forename') ? '' : (document.getElementById('guest-forename-fb') ? '-fb' : null); }
+
 function updateSubmitBtn(){
   const btn = document.getElementById('submit-btn');
   if(!btn) return;
-  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
-  const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
-  // Require forename + surname if in name-entry flow
-  const forenameEl = document.getElementById('forename-input');
-  const surnameEl  = document.getElementById('surname-input');
-  const guestNameEl = document.getElementById('guest-self-name');
-  const nameOk = (!forenameEl && !surnameEl && !guestNameEl) ||
-    (forenameEl && forenameEl.value.trim().length > 0 &&
-     surnameEl  && surnameEl.value.trim().length  > 0) ||
-    (guestNameEl && guestNameEl.value.trim().length > 1);
-  const ready = _response !== '' && guestOk && nameOk;
+  const missing=[];
+
+  // Guest / visitor responding for himself
+  if(document.getElementById('guest-self-forename')){
+    if(!val('guest-self-forename')) missing.push('forename');
+    if(!val('guest-self-surname'))  missing.push('surname');
+    if(!readTitle('guest-self-title')) missing.push('title');
+    if(!rankOk('guest-self-rank'))  missing.push('rank (or tick "no rank")');
+    if(!lodgeOk('guest-self-lodge')) missing.push('lodge name & number');
+    if(!emailOk('guest-self-email')) missing.push('a valid email');
+  }
+  // Member responding by name
+  if(document.getElementById('forename-input')){
+    if(!val('forename-input')) missing.push('forename');
+    if(!val('surname-input'))  missing.push('surname');
+  }
+  // Member bringing a guest
+  const sfx=guestSfx();
+  if(_response==='MtgDiningGuest' && sfx!==null){
+    if(!val('guest-forename'+sfx)) missing.push("guest's forename");
+    if(!val('guest-surname'+sfx))  missing.push("guest's surname");
+    if(!readTitle('guest-title'+sfx)) missing.push("guest's title");
+    if(!rankOk('guest-rank'+sfx))  missing.push("guest's rank");
+    if(!lodgeOk('guest-lodge'+sfx)) missing.push("guest's lodge & number");
+  }
+
+  const ready = _response !== '' && missing.length===0;
   btn.disabled    = !ready;
-  btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
+  btn.textContent = ready ? 'Submit Response →'
+    : !_response ? 'Select a response above'
+    : 'Still needed: '+missing.join(', ');
 }
 
 function showAlreadySubmitted(saved){
@@ -1027,7 +1078,9 @@ async function submitGuestResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
 
-  const guestSelfName  = (document.getElementById('guest-self-name')||{value:''}).value.trim();
+  const guestSelfForename = val('guest-self-forename');
+  const guestSelfSurname  = val('guest-self-surname');
+  const guestSelfName  = [guestSelfForename, guestSelfSurname].filter(Boolean).join(' ');
   const guestSelfLodge = (document.getElementById('guest-self-lodge')||{value:''}).value.trim();
   const guestSelfEmail = (document.getElementById('guest-self-email')||{value:''}).value.trim();
   const dietSel  = document.getElementById('dietary-sel-guest');
@@ -1043,13 +1096,13 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.fallbackEmail, guestSelfEmail);
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
-    body.append(FORM_FIELDS.surname,       '');
-    body.append(FORM_FIELDS.forename,      '');
+    body.append(FORM_FIELDS.surname,       guestSelfSurname);
+    body.append(FORM_FIELDS.forename,      guestSelfForename);
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
     body.append(FORM_FIELDS.guestDietary,  '');
-    body.append(FORM_FIELDS.guestTitle,    (document.getElementById('guest-self-title')||{value:''}).value.trim());
-    body.append(FORM_FIELDS.guestRank,     (document.getElementById('guest-self-rank')||{value:''}).value.trim());
+    body.append(FORM_FIELDS.guestTitle,    readTitle('guest-self-title'));
+    body.append(FORM_FIELDS.guestRank,     readRank('guest-self-rank'));
     await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
   } catch(e){ /* no-cors always throws */ }
 
@@ -1065,8 +1118,9 @@ async function submitResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
 
-  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
-  _guest   = (_response==='MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
+  const gs = guestSfx();
+  _guest   = (_response==='MtgDiningGuest' && gs!==null)
+    ? [val('guest-forename'+gs), val('guest-surname'+gs)].filter(Boolean).join(' ') : '';
   _surname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   _forename = (document.getElementById('forename-input')||{value:''}).value.trim();
 
@@ -1101,10 +1155,8 @@ async function submitResponse(){
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    _guestLodge);
     body.append(FORM_FIELDS.guestDietary,  _guestDietary);
-    const gTitleEl = document.getElementById('guest-title') || document.getElementById('guest-title-fb');
-    const gRankEl  = document.getElementById('guest-rank')  || document.getElementById('guest-rank-fb');
-    body.append(FORM_FIELDS.guestTitle,    gTitleEl ? gTitleEl.value.trim() : '');
-    body.append(FORM_FIELDS.guestRank,     gRankEl  ? gRankEl.value.trim()  : '');
+    body.append(FORM_FIELDS.guestTitle,    (_response==='MtgDiningGuest'&&gs!==null) ? readTitle('guest-title'+gs) : '');
+    body.append(FORM_FIELDS.guestRank,     (_response==='MtgDiningGuest'&&gs!==null) ? readRank('guest-rank'+gs)  : '');
     await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
   } catch(e){
     // no-cors always throws — treat as success
