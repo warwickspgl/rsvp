@@ -400,7 +400,7 @@ const MEETING_INFO_URL = 'https://script.google.com/macros/s/AKfycbzCU-Nhjje-QPA
 // ═══════════════════════════════════════════════════════════════
 let _lodge      = '';   // lodge param from URL e.g. 'C1630' or '9312'
 let _lodgeNum   = '';   // numeric part e.g. '1630'
-let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
+let _lodgePrefix= '';   // letter prefix e.g. 'L', 'MMM', 'C', 'ROS', 'RC', 'SM'
 let _meetingDate= '';   // meeting date from URL param
 let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
 let _fbEmail    = '';   // fallback email entered by member
@@ -430,10 +430,10 @@ async function init(){
   _meetingVenue   = params.get('v') || '';
   _lodgeFullName  = params.get('n') || '';
 
-  // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
+  // _lodge may be 'C1630', 'L9312', 'MMM254', 'ROS254', 'RC254', 'SM12' or just '9312'
   // Extract numeric part for display and matching
   _lodgeNum    = _lodge.replace(/^[A-Z]+/i,'');  // '1630', '9312'
-  _lodgePrefix = _lodge.replace(/\d+$/,'').toUpperCase(); // 'C', 'L', 'ROS', 'AAR', ''
+  _lodgePrefix = _lodge.replace(/\d+$/,'').toUpperCase(); // 'L', 'MMM', 'C', 'ROS', 'RC', 'SM', ''
 
   if(!_lodge || !_meetingDate){
     showScreen('no-params');
@@ -565,7 +565,7 @@ function meetingSuffixFromDate(dateStr){
 // Derive a display label and example code prefix from the lodge number
 function lodgeDisplayLabel(){
   if(_lodgeFullName) return _lodgeFullName;
-  const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
+  const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order of Scotland', RC:'Rose Croix Chapter', AAR:'Rose Croix Chapter', SM:'Secret Monitor Conclave' };
   const type = labels[_lodgePrefix] || 'Lodge';
   return `${type} ${_lodgeNum}`;
 }
@@ -1100,7 +1100,7 @@ function validateCode(){
     return;
   }
 
-  // If a prefix is known (C, L, ROS, AAR), code must start with it
+  // If a prefix is known (L, MMM, C, ROS, RC, SM), code must start with it
   if(_lodgePrefix && !normalised.startsWith(_lodgePrefix)){
     showError(errEl, `Code not recognised — your code should start with <strong>${escHtml(_lodgePrefix)}</strong> for this lodge. Please check and try again, or use the button below.`);
     input.select(); input.focus();
@@ -1331,29 +1331,4 @@ function showSuccess(){
 
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
-// ═══════════════════════════════════════════════════════════════
-function showError(el, msg){
-  if(!el) return;
-  el.style.display = '';
-  el.className = 'alert alert-error';
-  el.innerHTML = `<span>✕</span><div>${msg}</div>`;
-}
-
-function formatDate(dateStr){
-  if(!dateStr) return '';
-  try{
-    return new Date(dateStr+'T12:00:00').toLocaleDateString('en-GB',{
-      weekday:'long', day:'numeric', month:'long', year:'numeric'
-    });
-  } catch(e){ return dateStr; }
-}
-
-function escHtml(s){
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Boot ──
-init();
-</script>
-</body>
-</html>
+// ════════════════════════════════
