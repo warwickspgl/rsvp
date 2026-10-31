@@ -1283,9 +1283,8 @@ function generateICS(){
     'SUMMARY:'+escICS(lodge+' - Meeting'),
     _meetingVenue ? 'LOCATION:'+escICS(_meetingVenue) : '',
     'DESCRIPTION:'+escICS('Lodge meeting - '+lodge),
-    'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
-    'DESCRIPTION:'+escICS('Reminder - '+lodge+' meeting tonight'),
-    'END:VALARM','END:VEVENT','END:VCALENDAR'
+    // No reminder: members travel varying distances, so they set their own
+    'END:VEVENT','END:VCALENDAR'
   ].filter(Boolean);
   return lines.join('\r\n');
 }
