@@ -1258,6 +1258,12 @@ function generateICS(){
   var startUTC   = new Date(guessUTC.getTime() - offsetMins*60000);
   var endUTC     = new Date(startUTC.getTime() + durMins*60000);
 
+  // Wall-clock times for the meeting itself (the end may run past midnight)
+  var startLocal = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], hh, mm));
+  var endLocal   = new Date(startLocal.getTime() + durMins*60000);
+  function fmtLocal(d){
+    return d.toISOString().replace(/[-:]/g,'').split('.')[0];   // e.g. 20261031T100000
+  }
   function fmtUTC(d){
     return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   }
@@ -1270,8 +1276,10 @@ function generateICS(){
     'PRODID:-//Provincial Grand Lodge of Warwickshire//RSVP//EN',
     'CALSCALE:GREGORIAN','BEGIN:VEVENT',
     'UID:'+uid,'DTSTAMP:'+now,
-    'DTSTART:'+fmtUTC(startUTC),
-    'DTEND:'+fmtUTC(endUTC),
+    // "Floating" local time (no Z, no TZID): every calendar shows the time printed on the summons,
+    // even one whose own time zone is set wrongly (a UTC+1 setting turned 10:00Z into 11:00).
+    'DTSTART:'+fmtLocal(startLocal),
+    'DTEND:'+fmtLocal(endLocal),
     'SUMMARY:'+escICS(lodge+' - Meeting'),
     _meetingVenue ? 'LOCATION:'+escICS(_meetingVenue) : '',
     'DESCRIPTION:'+escICS('Lodge meeting - '+lodge),
