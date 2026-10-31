@@ -350,10 +350,11 @@
 </div>
 
 <div class="footer" id="footer-text" style="display:none">
-  Your name and response are stored securely on provincial servers solely to assist your lodge secretary.
-  Please do not enter any data you consider confidential. Guests and visitors are asked for an email address so the Secretary can confirm their booking; for members it is optional.
+  Your name, email address, response and any dietary needs are stored securely on provincial servers solely to assist your lodge secretary.
+  Your email address is used only to confirm your response.
+  Please do not enter any data you consider confidential.
   For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
-  All data is deleted automatically 7 days after the meeting date.
+  Your response is deleted automatically 7 days after the meeting date.
 </div>
 
 <script>
@@ -388,6 +389,11 @@ const FORM_FIELDS = {
 //   C1630-C-03092025
 //   # lines starting with # are comments and are ignored
 const ALTERATION_URL = 'https://raw.githubusercontent.com/warwickspgl/rsvp/main/alteration.txt';
+
+// ── Meeting details for short links (?l=L9943&d=2026-11-28) ─────────────────
+// The Secretary app saves time / venue / lodge name to the RSVP Data Service;
+// this page looks them up when the link doesn't carry t= / v= / n= itself.
+const MEETING_INFO_URL = 'https://script.google.com/macros/s/AKfycbzCU-Nhjje-QPAMN9L7XcWjIlQ_Bm_TsdFcx-k2Y4hy9VH_dh0a2dy_Jp4GU00zSlYj/exec';
 
 // ═══════════════════════════════════════════════════════════════
 //  STATE
@@ -437,10 +443,14 @@ async function init(){
   // Derive expected suffix from the meeting date in the URL
   _suffix = meetingSuffixFromDate(_meetingDate);
 
+  // Short link: fetch the details the link leaves out (runs alongside the alteration check)
+  const infoReady = (_meetingTime && _meetingVenue && _lodgeFullName) ? Promise.resolve() : lookupMeeting();
+
   // Check if already submitted for this meeting (before any network call)
   const storageKey = `rsvp_submitted_${_lodgeNum}_${_meetingDate}`;
   const saved = localStorage.getItem(storageKey);
   if(saved){
+    await infoReady;   // so "Add to Calendar" has the time and venue
     showAlreadySubmitted(JSON.parse(saved));
     return;
   }
@@ -455,13 +465,43 @@ async function init(){
   }
 
   // Alteration check — only reached for future meetings not yet responded to
-  const alteration = await checkAlteration();
+  const [alteration] = await Promise.all([checkAlteration(), infoReady]);
   if(alteration){
     showScreen(alteration.type === 'C' ? 'cancelled' : 'postponed', alteration);
     return;
   }
 
   showScreen('code-entry');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MEETING LOOKUP (short links)
+// ═══════════════════════════════════════════════════════════════
+// Fills only what the link didn't supply. Never blocks the form: on any
+// failure or after 6 seconds the page carries on as before.
+function lookupMeeting(){
+  return new Promise(resolve=>{
+    const cb = '_mtg_'+Date.now()+Math.floor(Math.random()*1000);
+    const s  = document.createElement('script');
+    const done = ()=>{ clearTimeout(t); delete window[cb]; s.remove(); resolve(); };
+    const t  = setTimeout(done, 6000);
+    window[cb] = d=>{
+      try{
+        if(d && d.status==='ok'){
+          if(!_lodgeFullName && d.name)  _lodgeFullName = String(d.name);
+          if(d.found){
+            if(!_meetingTime  && /^\d{1,2}:\d{2}$/.test(d.time||'')) _meetingTime = d.time;
+            if(!_meetingVenue && d.venue) _meetingVenue = String(d.venue);
+          }
+        }
+      } catch(e){}
+      done();
+    };
+    s.onerror = done;
+    s.src = MEETING_INFO_URL + '?action=meeting&lodge=' + encodeURIComponent(_lodge)
+          + '&date=' + encodeURIComponent(_meetingDate) + '&callback=' + cb + '&_=' + Date.now();
+    document.head.appendChild(s);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -620,8 +660,9 @@ function showScreen(screen, extra){
           <div class="card-head-sub">Please confirm your attendance</div>
         </div>
         <div class="meeting-strip">
-          <span>📅 <strong>${mtgDate}</strong></span>
-          <span class="pill">${lodgeDisplayLabel()}</span>
+          <span>📅 <strong>${mtgDate}</strong>${_meetingTime ? ` · ${escHtml(_meetingTime)}` : ''}</span>
+          <span class="pill">${escHtml(lodgeDisplayLabel())}</span>
+          ${_meetingVenue ? `<span style="flex-basis:100%;font-size:.74rem;opacity:.8">📍 ${escHtml(_meetingVenue)}</span>` : ''}
         </div>
         <div class="card-body screen">
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
@@ -695,7 +736,7 @@ function showScreen(screen, extra){
           <div class="field-group">
             <label for="guest-self-email">Your email <span style="color:var(--red)">*</span></label>
             <input id="guest-self-email" type="email" placeholder="email@example.com" autocomplete="email" oninput="updateSubmitBtn()">
-            <div class="field-hint">Used only so the Secretary can confirm your booking.</div>
+            <div class="field-hint">Used only to confirm your response.</div>
           </div>
           <hr class="divider">
           <label style="margin-bottom:10px">I will be:</label>
@@ -815,7 +856,7 @@ function showScreen(screen, extra){
           <div class="field-group">
             <label for="fb-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
             <input id="fb-email" type="email" placeholder="email@example.com">
-            <div class="field-hint">Used only so the Secretary can identify your response.</div>
+            <div class="field-hint">Used only to confirm your response.</div>
           </div>
           <hr class="divider">
           <label style="margin-bottom:10px">I will be:</label>
