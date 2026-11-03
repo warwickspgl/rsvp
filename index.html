@@ -350,11 +350,11 @@
 </div>
 
 <div class="footer" id="footer-text" style="display:none">
-  Your name, email address, response and any dietary needs are stored securely on provincial servers solely to assist your lodge secretary.
-  Your email address is used only to confirm your response.
-  Please do not enter any data you consider confidential.
+  Your name and response are stored securely on provincial servers solely to assist your lodge secretary.
+  Please do not enter any data you consider confidential. Email address is optional.
   For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
-  Your response is deleted automatically 7 days after the meeting date.
+  All data is deleted automatically 7 days after the meeting date.
+  <div style="opacity:.5;margin-top:4px">Page version 2026-11-03</div>
 </div>
 
 <script>
@@ -381,26 +381,21 @@ const FORM_FIELDS = {
   guestRank:     'entry.855117827'
 };
 
-// ── Alteration notices (cancellations / postponements) ──────────────────────
-// alteration.txt lives at: https://raw.githubusercontent.com/warwickspgl/rsvp/main/alteration.txt
-// Format (one entry per line):
-//   L9312-C-14072025            cancelled on that date
-//   L9312-M-14072025-28072025   moved from that date (optional new date)
-//   C1630-C-03092025
-//   # lines starting with # are comments and are ignored
-const ALTERATION_URL = 'https://raw.githubusercontent.com/warwickspgl/rsvp/main/alteration.txt';
-
-// ── Meeting details for short links (?l=L9943&d=2026-11-28) ─────────────────
-// The Secretary app saves time / venue / lodge name to the RSVP Data Service;
-// this page looks them up when the link doesn't carry t= / v= / n= itself.
-const MEETING_INFO_URL = 'https://script.google.com/macros/s/AKfycbzCU-Nhjje-QPAMN9L7XcWjIlQ_Bm_TsdFcx-k2Y4hy9VH_dh0a2dy_Jp4GU00zSlYj/exec';
+// Browser storage can be blocked (private mode, QR-scanner in-app browsers);
+// the page must still work without it.
+const store = {
+  get(k){ try{ return window.localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} },
+  del(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
+};
+const PAGE_VERSION = '2026-11-03';
 
 // ═══════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════
 let _lodge      = '';   // lodge param from URL e.g. 'C1630' or '9312'
 let _lodgeNum   = '';   // numeric part e.g. '1630'
-let _lodgePrefix= '';   // letter prefix e.g. 'L', 'MMM', 'C', 'ROS', 'RC', 'SM'
+let _lodgePrefix= '';   // letter prefix e.g. 'C', 'L', 'ROS', 'AAR'
 let _meetingDate= '';   // meeting date from URL param
 let _meetingTime= '';   // meeting time from URL param e.g. '18:30'
 let _fbEmail    = '';   // fallback email entered by member
@@ -416,26 +411,24 @@ let _isMember   = false; // true when member used forgot-code path
 let _dietary    = '';
 let _guestLodge = '';
 let _guestDietary = '';
-let _surname = '';
-let _forename = '';
 
 // ═══════════════════════════════════════════════════════════════
-//  INIT — async to allow alteration check before showing form
+//  INIT
 // ═══════════════════════════════════════════════════════════════
-async function init(){
+function init(){
   const params = new URLSearchParams(window.location.search);
-  _lodge          = params.get('l') || '';
-  _meetingDate    = params.get('d') || '';
+  _lodge       = params.get('l') || '';
+  _meetingDate = params.get('d') || '';
   _meetingTime    = params.get('t') || '';
   _meetingVenue   = params.get('v') || '';
   _lodgeFullName  = params.get('n') || '';
 
-  // _lodge may be 'C1630', 'L9312', 'MMM254', 'ROS254', 'RC254', 'SM12' or just '9312'
+  // _lodge may be 'C1630', 'L9312', 'ROS254', 'AAR254' or just '9312'
   // Extract numeric part for display and matching
   _lodgeNum    = _lodge.replace(/^[A-Z]+/i,'');  // '1630', '9312'
-  _lodgePrefix = _lodge.replace(/\d+$/,'').toUpperCase(); // 'L', 'MMM', 'C', 'ROS', 'RC', 'SM', ''
+  _lodgePrefix = _lodge.replace(/\d+$/,'').toUpperCase(); // 'C', 'L', 'ROS', 'AAR', ''
 
-  if(!_lodge || !_meetingDate){
+  if(!_lodge || !/^\d{4}-\d{2}-\d{2}$/.test(_meetingDate)){
     showScreen('no-params');
     return;
   }
@@ -443,19 +436,15 @@ async function init(){
   // Derive expected suffix from the meeting date in the URL
   _suffix = meetingSuffixFromDate(_meetingDate);
 
-  // Short link: fetch the details the link leaves out (runs alongside the alteration check)
-  const infoReady = (_meetingTime && _meetingVenue && _lodgeFullName) ? Promise.resolve() : lookupMeeting();
-
-  // Check if already submitted for this meeting (before any network call)
+  // Check if already submitted for this meeting
   const storageKey = `rsvp_submitted_${_lodgeNum}_${_meetingDate}`;
-  const saved = localStorage.getItem(storageKey);
+  const saved = store.get(storageKey);
   if(saved){
-    await infoReady;   // so "Add to Calendar" has the time and venue
-    showAlreadySubmitted(JSON.parse(saved));
-    return;
+    try{ showAlreadySubmitted(JSON.parse(saved)); return; }
+    catch(e){ store.del(storageKey); }
   }
 
-  // Past date check — takes priority over alteration check
+  // Check meeting hasn't already passed (allow responses on the day itself)
   if(_meetingDate){
     const mtgEnd = new Date(_meetingDate+'T23:59:59');
     if(mtgEnd < new Date()){
@@ -464,92 +453,7 @@ async function init(){
     }
   }
 
-  // Alteration check — only reached for future meetings not yet responded to
-  const [alteration] = await Promise.all([checkAlteration(), infoReady]);
-  if(alteration){
-    showScreen(alteration.type === 'C' ? 'cancelled' : 'postponed', alteration);
-    return;
-  }
-
   showScreen('code-entry');
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  MEETING LOOKUP (short links)
-// ═══════════════════════════════════════════════════════════════
-// Fills only what the link didn't supply. Never blocks the form: on any
-// failure or after 6 seconds the page carries on as before.
-function lookupMeeting(){
-  return new Promise(resolve=>{
-    const cb = '_mtg_'+Date.now()+Math.floor(Math.random()*1000);
-    const s  = document.createElement('script');
-    const done = ()=>{ clearTimeout(t); delete window[cb]; s.remove(); resolve(); };
-    const t  = setTimeout(done, 6000);
-    window[cb] = d=>{
-      try{
-        if(d && d.status==='ok'){
-          if(!_lodgeFullName && d.name)  _lodgeFullName = String(d.name);
-          if(d.found){
-            if(!_meetingTime  && /^\d{1,2}:\d{2}$/.test(d.time||'')) _meetingTime = d.time;
-            if(!_meetingVenue && d.venue) _meetingVenue = String(d.venue);
-          }
-        }
-      } catch(e){}
-      done();
-    };
-    s.onerror = done;
-    s.src = MEETING_INFO_URL + '?action=meeting&lodge=' + encodeURIComponent(_lodge)
-          + '&date=' + encodeURIComponent(_meetingDate) + '&callback=' + cb + '&_=' + Date.now();
-    document.head.appendChild(s);
-  });
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  ALTERATION CHECK
-// ═══════════════════════════════════════════════════════════════
-async function checkAlteration(){
-  // Returns { type:'C'|'M', newDate:'Day D Month YYYY'|null } or null
-  if(!_lodge || !_meetingDate) return null;
-
-  // Convert YYYY-MM-DD → ddmmyyyy for matching against alteration.txt
-  const [yr, mo, dy] = _meetingDate.split('-');
-  const ddmmyyyy = `${dy}${mo}${yr}`;
-  const lodgeUC  = _lodge.toUpperCase();
-
-  try{
-    const resp = await fetch(ALTERATION_URL + '?_=' + Date.now());
-    if(!resp.ok) return null; // fail open — show normal form
-
-    const lines = (await resp.text()).split('\n');
-    for(const raw of lines){
-      const line = raw.trim();
-      if(!line || line.startsWith('#')) continue;
-
-      // Format: LXXXX-C-ddmmyyyy  or  LXXXX-M-ddmmyyyy-ddmmyyyy
-      // parts[0]=lodge, parts[1]=type(C|M), parts[2]=fromDate, parts[3]=toDate(optional)
-      const parts = line.split('-');
-      if(parts.length < 3) continue;
-      if(parts[0].toUpperCase() !== lodgeUC) continue;
-      if(parts[2] !== ddmmyyyy) continue;
-
-      const type = parts[1].toUpperCase();
-      if(type !== 'C' && type !== 'M') continue;
-
-      // Parse optional new date (parts[3] = ddmmyyyy, e.g. '28072025')
-      let newDate = null;
-      if(parts[3] && parts[3].length === 8){
-        const s = parts[3];
-        const d = new Date(`${s.slice(4)}-${s.slice(2,4)}-${s.slice(0,2)}T12:00:00`);
-        if(!isNaN(d)) newDate = d.toLocaleDateString('en-GB',{
-          weekday:'long', day:'numeric', month:'long', year:'numeric'
-        });
-      }
-      return { type, newDate };
-    }
-    return null; // no matching entry — show normal form
-  } catch(e){
-    return null; // network failure — fail open, show normal form
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -563,9 +467,11 @@ function meetingSuffixFromDate(dateStr){
 }
 
 // Derive a display label and example code prefix from the lodge number
+// Chapters use C prefix, everything else L (we can't know order from URL alone)
+// So just use the lodge number as-is for the example
 function lodgeDisplayLabel(){
   if(_lodgeFullName) return _lodgeFullName;
-  const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order of Scotland', RC:'Rose Croix Chapter', AAR:'Rose Croix Chapter', SM:'Secret Monitor Conclave' };
+  const labels = { L:'Lodge', C:'Chapter', MMM:'Mark Lodge', ROS:'Royal Order', AAR:'Rose Croix' };
   const type = labels[_lodgePrefix] || 'Lodge';
   return `${type} ${_lodgeNum}`;
 }
@@ -574,7 +480,6 @@ function exampleCode(){
   const pfx = _lodgePrefix || 'L';
   return `${pfx}${_lodgeNum}ABC-${_suffix||'MAY26'}`;
 }
-
 function showScreen(screen, extra){
   const app = document.getElementById('app');
   document.getElementById('footer-text').style.display = '';
@@ -606,49 +511,7 @@ function showScreen(screen, extra){
             <span>⚠</span>
             <div>No meeting details found in this link. Please use the link provided in your invitation email.</div>
           </div>
-          <p style="font-size:.82rem;color:var(--muted);line-height:1.6">If you are testing this page, please contact the Provincial Registrar.</p>
-        </div>`;
-      break;
-
-    case 'cancelled':
-      app.innerHTML = `
-        <div class="card-head">
-          <div class="card-head-title" style="color:#fca5a5">Meeting Cancelled</div>
-        </div>
-        <div class="card-body screen">
-          <div class="success-icon">❌</div>
-          <div class="success-title" style="font-size:1.1rem;color:var(--red)">This meeting has been cancelled</div>
-          <div class="success-detail" style="margin-top:14px">
-            The meeting of <strong>${escHtml(lodgeDisplayLabel())}</strong> scheduled for
-            <strong>${escHtml(formatDate(_meetingDate))}</strong> has been cancelled.
-          </div>
-          <div class="alert alert-warn" style="margin-top:20px;margin-bottom:0">
-            <span>ℹ</span>
-            <div>Please contact your Secretary for further information. No response is required.</div>
-          </div>
-        </div>`;
-      break;
-
-    case 'postponed':
-      const newDateStr = (extra && extra.newDate)
-        ? `<br><br>The rescheduled date is <strong>${escHtml(extra.newDate)}</strong> — a new invitation will be sent when available.`
-        : `<br><br>A new date has not yet been confirmed. A new invitation will be sent in due course.`;
-      app.innerHTML = `
-        <div class="card-head">
-          <div class="card-head-title" style="color:var(--gold2)">Meeting Postponed</div>
-        </div>
-        <div class="card-body screen">
-          <div class="success-icon">📆</div>
-          <div class="success-title" style="font-size:1.1rem;color:var(--navy)">This meeting has been postponed</div>
-          <div class="success-detail" style="margin-top:14px">
-            The meeting of <strong>${escHtml(lodgeDisplayLabel())}</strong> scheduled for
-            <strong>${escHtml(formatDate(_meetingDate))}</strong> has been postponed.
-            ${newDateStr}
-          </div>
-          <div class="alert alert-info" style="margin-top:20px;margin-bottom:0">
-            <span>ℹ</span>
-            <div>Please contact your Secretary for further information. No response is required for the original date.</div>
-          </div>
+          <p style="font-size:.82rem;color:var(--muted);line-height:1.6">If you are testing this page, please contact the Provincial office.</p>
         </div>`;
       break;
 
@@ -660,9 +523,8 @@ function showScreen(screen, extra){
           <div class="card-head-sub">Please confirm your attendance</div>
         </div>
         <div class="meeting-strip">
-          <span>📅 <strong>${mtgDate}</strong>${_meetingTime ? ` · ${escHtml(_meetingTime)}` : ''}</span>
-          <span class="pill">${escHtml(lodgeDisplayLabel())}</span>
-          ${_meetingVenue ? `<span style="flex-basis:100%;font-size:.74rem;opacity:.8">📍 ${escHtml(_meetingVenue)}</span>` : ''}
+          <span>📅 <strong>${mtgDate}</strong></span>
+          <span class="pill">${lodgeDisplayLabel()}</span>
         </div>
         <div class="card-body screen">
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;text-align:center">Please select how you would like to respond:</div>
@@ -714,29 +576,25 @@ function showScreen(screen, extra){
           <div class="card-head-sub">📅 ${mtgDateG} · ${lodgeDisplayLabel()}</div>
         </div>
         <div class="card-body screen">
-          <div class="alert alert-info" style="margin-bottom:16px">
-            <span>ℹ</span>
-            <div>All fields marked <span style="color:var(--red)">*</span> are needed so the Secretary can record you correctly in the minutes and confirm your booking.</div>
+          <div class="field-group">
+            <label for="guest-self-name">Your full name <span style="color:var(--red)">*</span></label>
+            <input id="guest-self-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
           </div>
           <div class="field-group">
-            <label for="guest-self-forename">Forename <span style="color:var(--red)">*</span></label>
-            <input id="guest-self-forename" type="text" placeholder="e.g. John" autocomplete="given-name" oninput="updateSubmitBtn()">
+            <label for="guest-self-lodge">Your home lodge name &amp; number</label>
+            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
           </div>
           <div class="field-group">
-            <label for="guest-self-surname">Surname <span style="color:var(--red)">*</span></label>
-            <input id="guest-self-surname" type="text" placeholder="e.g. Smith" autocomplete="family-name" oninput="updateSubmitBtn()">
-          </div>
-          ${titleFieldHtml('guest-self-title','Your Masonic title')}
-          ${rankFieldHtml('guest-self-rank','Your rank / honours')}
-          <div class="field-group">
-            <label for="guest-self-lodge">Your home lodge name &amp; number <span style="color:var(--red)">*</span></label>
-            <input id="guest-self-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234" oninput="updateSubmitBtn()">
-            <div class="field-hint">Please include the lodge number.</div>
+            <label for="guest-self-title">Your Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="guest-self-title" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
           </div>
           <div class="field-group">
-            <label for="guest-self-email">Your email <span style="color:var(--red)">*</span></label>
-            <input id="guest-self-email" type="email" placeholder="email@example.com" autocomplete="email" oninput="updateSubmitBtn()">
-            <div class="field-hint">Used only to confirm your response.</div>
+            <label for="guest-self-rank">Your rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="guest-self-rank" type="text" placeholder="e.g. PPrJGW">
+          </div>
+          <div class="field-group">
+            <label for="guest-self-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+            <input id="guest-self-email" type="email" placeholder="email@example.com">
           </div>
           <hr class="divider">
           <label style="margin-bottom:10px">I will be:</label>
@@ -825,7 +683,30 @@ function showScreen(screen, extra){
           </div>
           <div id="guest-section" style="display:none;margin-top:4px">
             <hr class="divider">
-            ${guestOfMemberFieldsHtml('')}
+            <div class="field-group">
+              <label for="guest-name">Guest's full name</label>
+              <input id="guest-name" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
+            </div>
+            <div class="field-group">
+              <label for="guest-lodge">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-lodge" type="text" placeholder="e.g. Lodge of Example No. 1234">
+            </div>
+            <div class="field-group">
+              <label for="guest-title">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-title" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
+            </div>
+            <div class="field-group">
+              <label for="guest-rank">Guest's rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-rank" type="text" placeholder="e.g. PPrJGW">
+            </div>
+            <div class="field-group">
+              <label for="guest-dietary-sel">Guest's dietary requirements</label>
+              <select id="guest-dietary-sel" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="guest-dietary-text" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+            </div>
           </div>
           <div style="margin-top:20px">
             <button class="btn btn-gold" id="submit-btn" onclick="submitResponse()" disabled>Select a response above</button>
@@ -856,7 +737,7 @@ function showScreen(screen, extra){
           <div class="field-group">
             <label for="fb-email">Your email <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
             <input id="fb-email" type="email" placeholder="email@example.com">
-            <div class="field-hint">Used only to confirm your response.</div>
+            <div class="field-hint">Used only so the Secretary can identify your response.</div>
           </div>
           <hr class="divider">
           <label style="margin-bottom:10px">I will be:</label>
@@ -894,7 +775,30 @@ function showScreen(screen, extra){
           </div>
           <div id="guest-section-fb" style="display:none;margin-top:4px">
             <hr class="divider">
-            ${guestOfMemberFieldsHtml('-fb')}
+            <div class="field-group">
+              <label for="guest-name-fb">Guest's full name</label>
+              <input id="guest-name-fb" type="text" placeholder="e.g. John Smith" oninput="updateSubmitBtn()">
+            </div>
+            <div class="field-group">
+              <label for="guest-lodge-fb">Guest's lodge name &amp; number <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-lodge-fb" type="text" placeholder="e.g. Lodge of Example No. 1234">
+            </div>
+            <div class="field-group">
+              <label for="guest-title-fb">Guest's Masonic title <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-title-fb" type="text" placeholder="e.g. W Bro, Bro, VW Bro">
+            </div>
+            <div class="field-group">
+              <label for="guest-rank-fb">Guest's rank / honours <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+              <input id="guest-rank-fb" type="text" placeholder="e.g. PPrJGW">
+            </div>
+            <div class="field-group">
+              <label for="guest-dietary-sel-fb">Guest's dietary requirements</label>
+              <select id="guest-dietary-sel-fb" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:var(--font-body);font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text-fb',this.value)">
+                <option value="">No special requirements</option>
+                <option value="specify">Please specify…</option>
+              </select>
+              <input id="guest-dietary-text-fb" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
+            </div>
           </div>
           <div style="margin-top:20px">
             <button class="btn btn-gold" id="submit-btn" onclick="submitResponse()" disabled>Select a response above</button>
@@ -937,110 +841,22 @@ function selectResponse(val, btn){
   updateSubmitBtn();
 }
 
-// ── Field helpers (title / rank / guest-of-member) ──────────────
-const TITLE_OPTIONS = ['Bro','W Bro','VW Bro','RW Bro','MW Bro','Comp','E Comp'];
-
-function titleFieldHtml(id, label){
-  return `<div class="field-group">
-    <label for="${id}">${label} <span style="color:var(--red)">*</span></label>
-    <select id="${id}" onchange="document.getElementById('${id}-other').style.display=this.value==='__other__'?'':'none';updateSubmitBtn()"
-      style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--cream)">
-      <option value="">— please select —</option>
-      ${TITLE_OPTIONS.map(t=>`<option>${t}</option>`).join('')}
-      <option value="__other__">Other…</option>
-    </select>
-    <input id="${id}-other" type="text" placeholder="Please type your title" style="display:none;margin-top:6px" oninput="updateSubmitBtn()">
-  </div>`;
-}
-function readTitle(id){
-  const sel=document.getElementById(id); if(!sel) return '';
-  if(sel.value==='__other__') return (document.getElementById(id+'-other')||{value:''}).value.trim();
-  return sel.value;
-}
-function rankFieldHtml(id, label){
-  return `<div class="field-group">
-    <label for="${id}">${label} <span style="color:var(--red)">*</span></label>
-    <input id="${id}" type="text" placeholder="e.g. PPrJGW, LGR, PAGDC" oninput="updateSubmitBtn()">
-    <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:.76rem;color:var(--muted);margin-top:6px;cursor:pointer">
-      <input type="checkbox" id="${id}-none" onchange="const r=document.getElementById('${id}');r.disabled=this.checked;if(this.checked)r.value='';updateSubmitBtn()"> No provincial or grand rank
-    </label>
-  </div>`;
-}
-function readRank(id){
-  const none=document.getElementById(id+'-none');
-  if(none&&none.checked) return '';
-  return (document.getElementById(id)||{value:''}).value.trim();
-}
-function rankOk(id){
-  const none=document.getElementById(id+'-none');
-  return (none&&none.checked) || (document.getElementById(id)||{value:''}).value.trim().length>0;
-}
-function guestOfMemberFieldsHtml(sfx){
-  return `
-    <div style="font-size:.8rem;font-weight:600;color:var(--navy);margin-bottom:10px">Your guest's details</div>
-    <div class="field-group">
-      <label for="guest-forename${sfx}">Guest's forename <span style="color:var(--red)">*</span></label>
-      <input id="guest-forename${sfx}" type="text" placeholder="e.g. John" oninput="updateSubmitBtn()">
-    </div>
-    <div class="field-group">
-      <label for="guest-surname${sfx}">Guest's surname <span style="color:var(--red)">*</span></label>
-      <input id="guest-surname${sfx}" type="text" placeholder="e.g. Smith" oninput="updateSubmitBtn()">
-    </div>
-    ${titleFieldHtml('guest-title'+sfx,"Guest's Masonic title")}
-    ${rankFieldHtml('guest-rank'+sfx,"Guest's rank / honours")}
-    <div class="field-group">
-      <label for="guest-lodge${sfx}">Guest's lodge name &amp; number <span style="color:var(--red)">*</span></label>
-      <input id="guest-lodge${sfx}" type="text" placeholder="e.g. Lodge of Example No. 1234" oninput="updateSubmitBtn()">
-      <div class="field-hint">Please include the lodge number.</div>
-    </div>
-    <div class="field-group">
-      <label for="guest-dietary-sel${sfx}">Guest's dietary requirements</label>
-      <select id="guest-dietary-sel${sfx}" style="width:100%;padding:9px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:.88rem;background:var(--cream)" onchange="toggleDietaryText('guest-dietary-text${sfx}',this.value)">
-        <option value="">No special requirements</option>
-        <option value="specify">Please specify…</option>
-      </select>
-      <input id="guest-dietary-text${sfx}" type="text" placeholder="e.g. Vegetarian, nut allergy" style="display:none;margin-top:6px">
-    </div>`;
-}
-function val(id){ return (document.getElementById(id)||{value:''}).value.trim(); }
-function lodgeOk(id){ return /\d/.test(val(id)); }
-function emailOk(id){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val(id)); }
-function guestSfx(){ return document.getElementById('guest-forename') ? '' : (document.getElementById('guest-forename-fb') ? '-fb' : null); }
-
 function updateSubmitBtn(){
   const btn = document.getElementById('submit-btn');
   if(!btn) return;
-  const missing=[];
-
-  // Guest / visitor responding for himself
-  if(document.getElementById('guest-self-forename')){
-    if(!val('guest-self-forename')) missing.push('forename');
-    if(!val('guest-self-surname'))  missing.push('surname');
-    if(!readTitle('guest-self-title')) missing.push('title');
-    if(!rankOk('guest-self-rank'))  missing.push('rank (or tick "no rank")');
-    if(!lodgeOk('guest-self-lodge')) missing.push('lodge name & number');
-    if(!emailOk('guest-self-email')) missing.push('a valid email');
-  }
-  // Member responding by name
-  if(document.getElementById('forename-input')){
-    if(!val('forename-input')) missing.push('forename');
-    if(!val('surname-input'))  missing.push('surname');
-  }
-  // Member bringing a guest
-  const sfx=guestSfx();
-  if(_response==='MtgDiningGuest' && sfx!==null){
-    if(!val('guest-forename'+sfx)) missing.push("guest's forename");
-    if(!val('guest-surname'+sfx))  missing.push("guest's surname");
-    if(!readTitle('guest-title'+sfx)) missing.push("guest's title");
-    if(!rankOk('guest-rank'+sfx))  missing.push("guest's rank");
-    if(!lodgeOk('guest-lodge'+sfx)) missing.push("guest's lodge & number");
-  }
-
-  const ready = _response !== '' && missing.length===0;
+  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
+  const guestOk = _response !== 'MtgDiningGuest' || (guestInput && guestInput.value.trim().length > 1);
+  // Require forename + surname if in name-entry flow
+  const forenameEl = document.getElementById('forename-input');
+  const surnameEl  = document.getElementById('surname-input');
+  const guestNameEl = document.getElementById('guest-self-name');
+  const nameOk = (!forenameEl && !surnameEl && !guestNameEl) ||
+    (forenameEl && forenameEl.value.trim().length > 0 &&
+     surnameEl  && surnameEl.value.trim().length  > 0) ||
+    (guestNameEl && guestNameEl.value.trim().length > 1);
+  const ready = _response !== '' && guestOk && nameOk;
   btn.disabled    = !ready;
-  btn.textContent = ready ? 'Submit Response →'
-    : !_response ? 'Select a response above'
-    : 'Still needed: '+missing.join(', ');
+  btn.textContent = ready ? 'Submit Response →' : 'Select a response above';
 }
 
 function showAlreadySubmitted(saved){
@@ -1100,7 +916,7 @@ function validateCode(){
     return;
   }
 
-  // If a prefix is known (L, MMM, C, ROS, RC, SM), code must start with it
+  // If a prefix is known (C, L, ROS, AAR), code must start with it
   if(_lodgePrefix && !normalised.startsWith(_lodgePrefix)){
     showError(errEl, `Code not recognised — your code should start with <strong>${escHtml(_lodgePrefix)}</strong> for this lodge. Please check and try again, or use the button below.`);
     input.select(); input.focus();
@@ -1119,9 +935,7 @@ async function submitGuestResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='Submitting…'; }
 
-  const guestSelfForename = val('guest-self-forename');
-  const guestSelfSurname  = val('guest-self-surname');
-  const guestSelfName  = [guestSelfForename, guestSelfSurname].filter(Boolean).join(' ');
+  const guestSelfName  = (document.getElementById('guest-self-name')||{value:''}).value.trim();
   const guestSelfLodge = (document.getElementById('guest-self-lodge')||{value:''}).value.trim();
   const guestSelfEmail = (document.getElementById('guest-self-email')||{value:''}).value.trim();
   const dietSel  = document.getElementById('dietary-sel-guest');
@@ -1137,17 +951,17 @@ async function submitGuestResponse(){
     body.append(FORM_FIELDS.fallbackEmail, guestSelfEmail);
     body.append(FORM_FIELDS.lodge,         _lodge);
     body.append(FORM_FIELDS.meetingDate,   _meetingDate);
-    body.append(FORM_FIELDS.surname,       guestSelfSurname);
-    body.append(FORM_FIELDS.forename,      guestSelfForename);
+    body.append(FORM_FIELDS.surname,       '');
+    body.append(FORM_FIELDS.forename,      '');
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    guestSelfLodge);
     body.append(FORM_FIELDS.guestDietary,  '');
-    body.append(FORM_FIELDS.guestTitle,    readTitle('guest-self-title'));
-    body.append(FORM_FIELDS.guestRank,     readRank('guest-self-rank'));
+    body.append(FORM_FIELDS.guestTitle,    (document.getElementById('guest-self-title')||{value:''}).value.trim());
+    body.append(FORM_FIELDS.guestRank,     (document.getElementById('guest-self-rank')||{value:''}).value.trim());
     await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
   } catch(e){ /* no-cors always throws */ }
 
-  localStorage.setItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
+  store.set(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
     response: _response, guest: guestSelfName, submitted: new Date().toISOString()
   }));
   _guest = guestSelfName;
@@ -1159,9 +973,8 @@ async function submitResponse(){
   const btn = document.getElementById('submit-btn');
   if(btn){ btn.disabled = true; btn.textContent = 'Submitting…'; }
 
-  const gs = guestSfx();
-  _guest   = (_response==='MtgDiningGuest' && gs!==null)
-    ? [val('guest-forename'+gs), val('guest-surname'+gs)].filter(Boolean).join(' ') : '';
+  const guestInput = document.getElementById('guest-name') || document.getElementById('guest-name-fb');
+  _guest   = (_response==='MtgDiningGuest' && guestInput) ? guestInput.value.trim() : '';
   _surname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   _forename = (document.getElementById('forename-input')||{value:''}).value.trim();
 
@@ -1169,7 +982,7 @@ async function submitResponse(){
   const fbSurname  = (document.getElementById('surname-input') ||{value:''}).value.trim();
   const fbName  = [fbForename, fbSurname].filter(Boolean).join(' ');
   const fbEmail = (document.getElementById('fb-email')||{value:''}).value.trim();
-  _fbEmail = fbEmail;
+  _fbEmail = fbEmail;  // store for showSuccess message
 
   // Dietary — use text if "specify" selected
   const dietSel  = document.getElementById('dietary-sel')   || document.getElementById('dietary-sel-fb');
@@ -1196,14 +1009,16 @@ async function submitResponse(){
     body.append(FORM_FIELDS.dietary,       _dietary);
     body.append(FORM_FIELDS.guestLodge,    _guestLodge);
     body.append(FORM_FIELDS.guestDietary,  _guestDietary);
-    body.append(FORM_FIELDS.guestTitle,    (_response==='MtgDiningGuest'&&gs!==null) ? readTitle('guest-title'+gs) : '');
-    body.append(FORM_FIELDS.guestRank,     (_response==='MtgDiningGuest'&&gs!==null) ? readRank('guest-rank'+gs)  : '');
+    const gTitleEl = document.getElementById('guest-title') || document.getElementById('guest-title-fb');
+    const gRankEl  = document.getElementById('guest-rank')  || document.getElementById('guest-rank-fb');
+    body.append(FORM_FIELDS.guestTitle,    gTitleEl ? gTitleEl.value.trim() : '');
+    body.append(FORM_FIELDS.guestRank,     gRankEl  ? gRankEl.value.trim()  : '');
     await fetch(FORM_ACTION, { method:'POST', mode:'no-cors', body });
   } catch(e){
     // no-cors always throws — treat as success
   }
 
-  localStorage.setItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
+  store.set(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`, JSON.stringify({
     response: _response, guest: _guest, submitted: new Date().toISOString()
   }));
 
@@ -1211,80 +1026,40 @@ async function submitResponse(){
 }
 
 function clearAndRespond(){
-  localStorage.removeItem(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
+  store.del(`rsvp_submitted_${_lodgeNum}_${_meetingDate}`);
   _response=''; _code=''; _matched=false; _guest=''; _isMember=false;
   _surname=''; _forename=''; _dietary=''; _guestLodge=''; _guestDietary='';
   showScreen('code-entry');
 }
 
-// Returns the Europe/London UTC offset (in minutes) for a given UTC instant,
-// e.g. 0 for GMT, 60 for BST. Used to convert local meeting times to true UTC
-// so the .ics file has no ambiguous TZID and no VTIMEZONE dependency.
-function getLondonOffsetMinutes(utcDate){
-  var dtf = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London', hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit'
-  });
-  var parts = {};
-  dtf.formatToParts(utcDate).forEach(function(p){ parts[p.type] = p.value; });
-  var asIfUTC = Date.UTC(parts.year, parts.month-1, parts.day, parts.hour, parts.minute, parts.second);
-  return Math.round((asIfUTC - utcDate.getTime()) / 60000);
-}
-
-// Escapes a value for use inside an iCalendar TEXT property (RFC 5545 §3.3.11):
-// backslash, semicolon, and comma must be backslash-escaped; newlines become \n.
-function escICS(s){
-  return String(s||'')
-    .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\\;')
-    .replace(/,/g, '\\,')
-    .replace(/\r?\n/g, '\\n');
-}
-
 function generateICS(){
-  var hh = parseInt((_meetingTime||'18:00').split(':')[0]);
-  var mm = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
+  var d   = _meetingDate.replace(/-/g,'');
+  var tim = (_meetingTime||'18:00').replace(':','')+'00';
+  var hh  = parseInt((_meetingTime||'18:00').split(':')[0]);
+  var mm  = parseInt((_meetingTime||'18:00').split(':')[1]||'0');
   // Duration: 3.5hrs for dining, 2.5hrs for meeting only
   var isDining = (_response==='MtgDining'||_response==='MtgDiningGuest');
   var durMins  = isDining ? 210 : 150;
-
-  var dateParts = _meetingDate.split('-').map(Number); // [YYYY, MM, DD]
-
-  // First guess: treat the wall-clock time as if it were UTC, then find out
-  // what the actual Europe/London offset is on that date/time and correct for it.
-  var guessUTC   = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], hh, mm));
-  var offsetMins = getLondonOffsetMinutes(guessUTC);
-  var startUTC   = new Date(guessUTC.getTime() - offsetMins*60000);
-  var endUTC     = new Date(startUTC.getTime() + durMins*60000);
-
-  // Wall-clock times for the meeting itself (the end may run past midnight)
-  var startLocal = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], hh, mm));
-  var endLocal   = new Date(startLocal.getTime() + durMins*60000);
-  function fmtLocal(d){
-    return d.toISOString().replace(/[-:]/g,'').split('.')[0];   // e.g. 20261031T100000
-  }
-  function fmtUTC(d){
-    return d.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
-  }
-
+  var endMins  = (hh*60 + mm + durMins) % (24*60);
+  var endHH = String(Math.floor(endMins/60)).padStart(2,'0');
+  var endMM = String(endMins%60).padStart(2,'0');
+  var endT  = endHH+endMM+'00';
   var uid   = 'rsvp-'+_lodge+'-'+_meetingDate+'@warwickspgl.org.uk';
   var lodge = lodgeDisplayLabel();
-  var now   = fmtUTC(new Date());
+  var now   = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   var lines = [
     'BEGIN:VCALENDAR','VERSION:2.0',
     'PRODID:-//Provincial Grand Lodge of Warwickshire//RSVP//EN',
     'CALSCALE:GREGORIAN','BEGIN:VEVENT',
     'UID:'+uid,'DTSTAMP:'+now,
-    // "Floating" local time (no Z, no TZID): every calendar shows the time printed on the summons,
-    // even one whose own time zone is set wrongly (a UTC+1 setting turned 10:00Z into 11:00).
-    'DTSTART:'+fmtLocal(startLocal),
-    'DTEND:'+fmtLocal(endLocal),
-    'SUMMARY:'+escICS(lodge+' - Meeting'),
-    _meetingVenue ? 'LOCATION:'+escICS(_meetingVenue) : '',
-    'DESCRIPTION:'+escICS('Lodge meeting - '+lodge),
-    // No reminder: members travel varying distances, so they set their own
-    'END:VEVENT','END:VCALENDAR'
+    'DTSTART;TZID=Europe/London:'+d+'T'+tim,
+    'DTEND;TZID=Europe/London:'+d+'T'+endT,
+    'SUMMARY:'+lodge+' - Meeting',
+    _meetingVenue ? 'LOCATION:'+_meetingVenue : '',
+    'DESCRIPTION:Lodge meeting - '+lodge,
+    'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY',
+    'DESCRIPTION:Reminder - '+lodge+' meeting tonight',
+    'END:VALARM','END:VEVENT','END:VCALENDAR'
   ].filter(Boolean);
   return lines.join('\r\n');
 }
@@ -1320,6 +1095,7 @@ function showSuccess(){
         Your response has been recorded.
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
+
       ${(_response !== 'Apol' && _meetingTime) ? `
       <hr style="border:none;border-top:1px solid #e5e0d0;margin:20px 0">
       <button onclick="downloadCalendar()" style="display:block;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-family:var(--font-body);font-size:.95rem;font-weight:600;cursor:pointer;margin-bottom:10px"> 📅 Add to Calendar
@@ -1331,4 +1107,39 @@ function showSuccess(){
 
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
-// ════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+function showError(el, msg){
+  if(!el) return;
+  el.style.display = '';
+  el.className = 'alert alert-error';
+  el.innerHTML = `<span>✕</span><div>${msg}</div>`;
+}
+
+function formatDate(dateStr){
+  if(!dateStr) return '';
+  try{
+    return new Date(dateStr+'T12:00:00').toLocaleDateString('en-GB',{
+      weekday:'long', day:'numeric', month:'long', year:'numeric'
+    });
+  } catch(e){ return dateStr; }
+}
+
+function escHtml(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Boot ──
+try { init(); }
+catch(err){
+  console.error(err);
+  document.getElementById('app').innerHTML = `
+    <div class="card-head"><div class="card-head-title">Meeting Response</div></div>
+    <div class="card-body"><div class="alert alert-error"><span>✕</span><div>
+      Sorry — this page could not start on this browser.<br>
+      Please open the link in Safari or Chrome (not inside the QR-scanner app), or contact your Secretary.
+      <div style="font-size:.7rem;margin-top:6px;opacity:.7">${escHtml(String(err&&err.message||err))}</div>
+    </div></div></div>`;
+}
+</script>
+</body>
+</html>
