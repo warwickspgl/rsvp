@@ -354,7 +354,7 @@
   Please do not enter any data you consider confidential. Email address is optional.
   For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
   All data is deleted automatically 7 days after the meeting date.
-  <div style="opacity:.5;margin-top:4px">Page version 2026-11-03</div>
+  <div style="opacity:.5;margin-top:4px">Page version 2026-11-04</div>
 </div>
 
 <script>
@@ -388,7 +388,7 @@ const store = {
   set(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} },
   del(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 };
-const PAGE_VERSION = '2026-11-03';
+const PAGE_VERSION = '2026-11-04';
 
 // ═══════════════════════════════════════════════════════════════
 //  STATE
@@ -531,11 +531,11 @@ function showScreen(screen, extra){
           <div style="display:flex;flex-direction:column;gap:10px">
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showFallback()">
               <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🏛️ I am a Member of this Lodge</div>
-              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
+              <div style="font-size:.75rem;opacity:.7">Including Honorary Members — register your attendance or apologies</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px" onclick="showScreen('guest')">
               <div style="font-weight:700;font-size:.9rem;margin-bottom:2px">🤝 I am a Guest or Visitor</div>
-              <div style="font-size:.75rem;opacity:.7">Register your attendance or apologies</div>
+              <div style="font-size:.75rem;opacity:.7">Not a member of this lodge — register your attendance or apologies</div>
             </button>
             <button class="resp-btn" style="text-align:left;padding:14px 16px;border-radius:8px;opacity:.7;border-style:dashed" onclick="showScreen('code-entry-input')">
               <div style="font-weight:600;font-size:.82rem;margin-bottom:2px">🔑 I have a personal privacy code</div>
