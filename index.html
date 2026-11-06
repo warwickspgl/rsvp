@@ -294,6 +294,11 @@
   .badge-meeting { background: #eff6ff; color: var(--navy); border: 2px solid var(--navy); }
   .badge-dining  { background: #f0fdf4; color: var(--green); border: 2px solid var(--green); }
   .badge-guest   { background: #ecfeff; color: #0e7490; border: 2px solid #0e7490; }
+  .badge-wait    { background: #fffbeb; color: #92400e; border: 2px solid #d97706; }
+  .resp-btn.wait.selected { border-color: #d97706; background: #d97706; }
+  .resp-btn[disabled] { opacity:.45; cursor:not-allowed; }
+  .places { display:inline-block; margin-top:3px; font-size:.66rem; font-weight:700; color:#15803d; }
+  .places.low { color:#b45309; }
 
   /* ── Loading ── */
   .loading {
@@ -354,7 +359,7 @@
   Please do not enter any data you consider confidential. Email address is optional.
   For maximum privacy, ask your secretary for a personal code — your response is then recorded anonymously.
   All data is deleted automatically 7 days after the meeting date.
-  <div style="opacity:.5;margin-top:4px">Page version 2026-11-04</div>
+  <div style="opacity:.5;margin-top:4px">Page version 2026-11-06</div>
 </div>
 
 <script>
@@ -388,7 +393,10 @@ const store = {
   set(k,v){ try{ window.localStorage.setItem(k,v); }catch(e){} },
   del(k){ try{ window.localStorage.removeItem(k); }catch(e){} }
 };
-const PAGE_VERSION = '2026-11-04';
+const PAGE_VERSION = '2026-11-06';
+// RSVP server: meeting details for short links, and dining places
+const RSVP_API = 'https://script.google.com/macros/s/AKfycbzCU-Nhjje-QPAMN9L7XcWjIlQ_Bm_TsdFcx-k2Y4hy9VH_dh0a2dy_Jp4GU00zSlYj/exec';
+let _cap = null;   // {cap, taken, left, waiting} when the Secretary has set a dining limit
 
 // ═══════════════════════════════════════════════════════════════
 //  STATE
@@ -435,7 +443,38 @@ function init(){
 
   // Derive expected suffix from the meeting date in the URL
   _suffix = meetingSuffixFromDate(_meetingDate);
+  lookupMeeting().then(()=>{
+    try { continueInit(); } catch(err){ showStartError(err); }
+  });
+}
 
+// Ask the server for this meeting's details. Never blocks the form for long:
+// if it doesn't answer in 6 seconds the page carries on with what the link gave.
+function lookupMeeting(){
+  return new Promise(resolve=>{
+    const cb = '_mtg' + Date.now();
+    const sc = document.createElement('script');
+    let finished = false;
+    const done = ()=>{ if(finished) return; finished = true; clearTimeout(t); window[cb] = function(){}; sc.remove(); resolve(); };
+    const t = setTimeout(done, 6000);
+    window[cb] = d=>{
+      try{
+        if(d && d.status==='ok'){
+          if(!_meetingTime && d.time)    _meetingTime = d.time;
+          if(!_meetingVenue && d.venue)  _meetingVenue = d.venue;
+          if(!_lodgeFullName && d.name)  _lodgeFullName = d.name;
+          if(d.cap > 0) _cap = { cap:d.cap, taken:d.taken||0, left:Math.max(0, d.left||0), waiting:d.waiting||0 };
+        }
+      }catch(e){}
+      done();
+    };
+    sc.onerror = done;
+    sc.src = RSVP_API + '?action=meeting&lodge=' + encodeURIComponent(_lodge) + '&date=' + encodeURIComponent(_meetingDate) + '&callback=' + cb + '&_=' + Date.now();
+    document.head.appendChild(sc);
+  });
+}
+
+function continueInit(){
   // Check if already submitted for this meeting
   const storageKey = `rsvp_submitted_${_lodgeNum}_${_meetingDate}`;
   const saved = store.get(storageKey);
@@ -807,6 +846,34 @@ function showScreen(screen, extra){
         </div>`;
       break;
   }
+  applyCap();
+}
+
+// Dining limit: show places left, or turn "dining" into "join the waiting list"
+function applyCap(){
+  if(!_cap) return;
+  document.querySelectorAll('.response-grid').forEach(grid=>{
+    const dining = grid.querySelector('.resp-btn.dining');
+    const guest  = grid.querySelector('.resp-btn.guest');
+    if(_cap.left > 0){
+      if(dining){
+        const sub = dining.querySelector('.resp-sub');
+        if(sub) sub.insertAdjacentHTML('afterend', `<span class="places${_cap.left<=10?' low':''}">${_cap.left} place${_cap.left===1?'':'s'} left</span>`);
+      }
+      if(guest && _cap.left < 2){
+        guest.disabled = true;
+        const sub = guest.querySelector('.resp-sub');
+        if(sub) sub.textContent = 'Only 1 dining place left';
+      }
+    } else {
+      if(dining){
+        dining.classList.remove('dining'); dining.classList.add('wait');
+        dining.setAttribute('onclick', "selectResponse('MtgWait',this)");
+        dining.innerHTML = `<span class="resp-icon">⏳</span><div class="resp-label">Attending — dining full</div><div class="resp-sub">Join the dining waiting list</div>`;
+      }
+      if(guest){ guest.disabled = true; const sub = guest.querySelector('.resp-sub'); if(sub) sub.textContent = 'Dining is full'; }
+    }
+  });
 }
 
 function showFallback(){
@@ -826,7 +893,7 @@ function selectResponse(val, btn){
   _response = val;
   btn.closest('.response-grid').querySelectorAll('.resp-btn').forEach(b=>b.classList.remove('selected'));
   btn.classList.add('selected');
-  const isDining = ['MtgDining','MtgDiningGuest'].includes(val);
+  const isDining = ['MtgDining','MtgDiningGuest','MtgWait'].includes(val);
   const isGuest  = val === 'MtgDiningGuest';
   // Show dietary for any dining response — check all variants
   ['dietary-section','dietary-section-fb','dietary-section-guest'].forEach(id=>{
@@ -862,8 +929,8 @@ function updateSubmitBtn(){
 function showAlreadySubmitted(saved){
   document.getElementById('footer-text').style.display = '';
   const app = document.getElementById('app');
-  const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest' };
-  const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest' };
+  const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest', MtgWait:'badge-wait' };
+  const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest', MtgWait:'Meeting — on the dining waiting list' };
   const badge  = badges[saved.response] || 'badge-meeting';
   const label  = labels[saved.response] || saved.response;
   app.innerHTML = `
@@ -1075,8 +1142,8 @@ function downloadCalendar(){
 
 function showSuccess(){
   const app   = document.getElementById('app');
-  const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest' };
-  const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest' };
+  const labels = { Apol:'Apologies sent', MtgOnly:'Meeting only', MtgDining:'Meeting + Dining', MtgDiningGuest:'Meeting + Dining + Guest', MtgWait:'Meeting — on the dining waiting list' };
+  const badges = { Apol:'badge-apol', MtgOnly:'badge-meeting', MtgDining:'badge-dining', MtgDiningGuest:'badge-guest', MtgWait:'badge-wait' };
   const label  = labels[_response] || _response;
   const badge  = badges[_response] || 'badge-meeting';
   const mtgDate = formatDate(_meetingDate);
@@ -1093,6 +1160,7 @@ function showSuccess(){
       ${_guest ? `<div style="font-size:.8rem;color:var(--muted);text-align:center;margin-top:-8px;margin-bottom:12px">${_code==='(guest)' ? 'Responding as: ' : 'Guest: '}${escHtml(_guest)}</div>` : ''}
       <div class="success-detail">
         Your response has been recorded.
+        ${_response==='MtgWait' ? '<br><br>Your place at the meeting is confirmed. Dining is full at the moment — the Secretary will contact you if a place becomes free.' : ''}
         <br><br>Meeting date: <strong>${mtgDate}</strong>
       </div>
 
@@ -1129,8 +1197,7 @@ function escHtml(s){
 }
 
 // ── Boot ──
-try { init(); }
-catch(err){
+function showStartError(err){
   console.error(err);
   document.getElementById('app').innerHTML = `
     <div class="card-head"><div class="card-head-title">Meeting Response</div></div>
@@ -1140,6 +1207,7 @@ catch(err){
       <div style="font-size:.7rem;margin-top:6px;opacity:.7">${escHtml(String(err&&err.message||err))}</div>
     </div></div></div>`;
 }
+try { init(); } catch(err){ showStartError(err); }
 </script>
 </body>
 </html>
